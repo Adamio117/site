@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Горячая выпечка - свежая выпечка с доставкой</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="soft-header">
+      <div class="container">
+        <div class="header-content">
+          <h1 class="logo">Горячая Выпечка</h1>
+          <nav class="main-nav">
+            <a href="#products">Выпечка</a>
+            <a href="#sets">Наборы</a>
+            <a href="#delivery">Доставка</a>
+            <a href="#promo">Акции</a>
+            <a href="#contacts">Контакты</a>
+          </nav>
+        </div>
+      </div>
+      <!-- В шапке (header) изменим блок header-right -->
+      <div class="header-right">
+        <!-- Кнопка входа/профиля -->
+        <button class="login-btn" id="loginBtn">Вход</button>
+
+        <!-- Корзина -->
+        <div class="cart-container">
+          <div class="cart-icon" id="cartIcon">
+            🛒 <span class="cart-count">0</span>
+          </div>
+          <div class="notification-bubble" id="notificationBubble"></div>
+          <div class="cart-dropdown" id="cartDropdown">
+            <div class="cart-preview" id="cartPreview"></div>
+            <button class="view-cart-btn" id="viewCartBtn">
+              Перейти в корзину
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="delivery" class="hero-section">
+        <div class="container">
+          <h2>Свежая выпечка с доставкой</h2>
+          <p class="hero-text">
+            Ароматные булочки, пироги и хлеб прямо из печи к вашему столу
+          </p>
+          <div class="delivery-info">
+            <p>Доставка в течение 30 минут</p>
+            <a href="tel:+79991234567" class="phone-link">+7 929 009 66 46</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="products" class="products-section">
+        <div class="container">
+          <h2 class="section-title">Наша выпечка</h2>
+          <p class="section-subtitle">
+            Только свежие продукты и традиционные рецепты
+          </p>
+
+          <div class="products-grid">
+            <div class="product-card">
+              <div
+                class="product-image"
+                style="
+                  background-image: url('https://images.unsplash.com/photo-1509440159596-0249088772ff');
+                "
+              ></div>
+              <h3>Круассан с шоколадом</h3>
+              <p>Слоеное тесто, шоколадная начинка</p>
+              <div class="product-footer">
+                <span class="price">89 ₽</span>
+                <button
+                  class="order-btn small"
+                  onclick="addToCart('Круассан с шоколадом', 89, this)"
+                >
+                  Добавить
+                </button>
+              </div>
+            </div>
+
+            <div class="product-card">
+              <div
+                class="product-image"
+                style="
+                  background-image: url('https://images.unsplash.com/photo-1558312651-67358a7c5747');
+                "
+              ></div>
+              <h3>Булочка с корицей</h3>
+              <p>Пышная булочка с ароматной корицей</p>
+              <div class="product-footer">
+                <span class="price">79 ₽</span>
+                <button
+                  class="order-btn small"
+                  onclick="addToCart('Булочка с корицей', 89, this)"
+                >
+                  Добавить
+                </button>
+              </div>
+            </div>
+
+            <div class="product-card">
+              <div
+                class="product-image"
+                style="
+                  background-image: url('https://images.unsplash.com/photo-1562440499-64c9a111f713');
+                "
+              ></div>
+              <h3>Пирог с вишней</h3>
+              <p>Сдобное тесто, сочная вишневая начинка</p>
+              <div class="product-footer">
+                <span class="price">199 ₽</span>
+                <button
+                  class="order-btn small"
+                  onclick="addToCart('Пирог с вишней', 89, this)"
+                >
+                  Добавить
+                </button>
+              </div>
+            </div>
+            <div class="product-card">
+              <div
+                class="product-image"
+                style="background-image: url('ссылка_на_изображение')"
+              ></div>
+              <h3>Название нового товара</h3>
+              <p>Описание нового товара</p>
+              <div class="product-footer">
+                <span class="price">Цена ₽</span>
+                <button
+                  class="order-btn small"
+                  onclick="addToCart('Круассан с шоколадом', 89, this)"
+                >
+                  Добавить
+                </button>
+              </div>
+            </div>
+            <div class="product-card">
+              <div
+                class="product-image"
+                style="background-image: url('img/promo-item.jpg')"
+              ></div>
+              <div class="promo-badge">Акция</div>
+              <h3>Булочка с изюмом</h3>
+              <p>Пышная булочка с изюмом и корицей</p>
+              <div class="product-footer">
+                <span class="old-price">89 ₽</span>
+                <span class="price">69 ₽</span>
+                <button
+                  class="order-btn small"
+                  onclick="addToCart('Булочка с изюмом', 89, this)"
+                >
+                  Добавить
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="sets" class="sets-section">
+        <div class="container">
+          <h2 class="section-title">Наборы</h2>
+          <p class="section-subtitle">
+            Соберите свой набор и получите скидку 15%
+          </p>
+
+          <div class="sets-grid">
+            <div class="set-card">
+              <h3>Утренний набор</h3>
+              <ul>
+                <li>2 круассана</li>
+                <li>2 булочки с корицей</li>
+                <li>Кофе в подарок</li>
+              </ul>
+              <div class="set-footer">
+                <span class="old-price">350 ₽</span>
+                <span class="price">299 ₽</span>
+              </div>
+              <button
+                class="order-btn"
+                onclick="addToCart('Утренний набор', 89, this)"
+              >
+                Добавить
+              </button>
+            </div>
+
+            <div class="set-card featured">
+              <div class="popular-badge">Популярный</div>
+              <h3>Семейный набор</h3>
+              <ul>
+                <li>Пирог на выбор</li>
+                <li>4 булочки</li>
+                <li>Свежий багет</li>
+                <li>Варенье в подарок</li>
+              </ul>
+              <div class="set-footer">
+                <span class="old-price">700 ₽</span>
+                <span class="price">599 ₽</span>
+              </div>
+              <button
+                class="order-btn"
+                onclick="addToCart('Семейный набор', 89, this)"
+              >
+                Добавить
+              </button>
+            </div>
+
+            <div class="set-card">
+              <h3>Десертный набор</h3>
+              <ul>
+                <li>3 вида пирожных</li>
+                <li>2 эклера</li>
+                <li>Фруктовый компот</li>
+              </ul>
+              <div class="set-footer">
+                <span class="old-price">580 ₽</span>
+                <span class="price">499 ₽</span>
+              </div>
+              <button
+                class="order-btn"
+                onclick="addToCart('Десертный набор', 89, this)"
+              >
+                Добавить
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="promo" class="promo-section">
+        <div class="container">
+          <h2 class="section-title">Акции</h2>
+          <div class="promo-card">
+            <h3>Скидка 15% при заказе от 2000 рублей!</h3>
+            <p>
+              Скидка распространяется на весь ассортимент и действует с 8:00 до
+              20:00 ежедневно.
+            </p>
+            <div class="promo-timer">
+              <p>До конца акции осталось:</p>
+              <div class="timer">
+                <span id="hours">12</span> ч <span id="minutes">45</span> мин
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="promo-card hot-offer">
+          <div class="promo-header">
+            <span class="promo-badge">ХИТ</span>
+            <h3>Свежеиспеченная акция!</h3>
+          </div>
+          <p class="highlight">
+            Закажите 3 любых изделия и получите <strong>4-е в подарок</strong>!
+          </p>
+          <p>Выберите любые круассаны, булочки или пироги из нашего меню</p>
+
+          <div class="promo-timer">
+            <p>Предложение действует только:</p>
+            <div class="timer">
+              <span id="days">2</span> дня <span id="hours">12</span> часа
+              <span id="minutes">45</span> минут
+            </div>
+          </div>
+
+          <div class="promo-note">
+            <p>
+              🎁 При заказе от 1500₽ - бесплатная упаковка в подарочную коробку
+            </p>
+          </div>
+        </div>
+
+        <div class="promo-card bread-day">
+          <h3>
+            <span class="icon">🍞</span> Каждый четверг - Скидка 25% на весь
+            хлеб!
+          </h3>
+          <p>
+            Только по четвергам специальное предложение на всю нашу хлебную
+            продукцию:
+          </p>
+          <ul class="promo-list">
+            <li>Багет французский</li>
+            <li>Хлеб ржаной</li>
+            <li>Чиабатта</li>
+            <li>Бородинский</li>
+          </ul>
+          <div class="promo-footer">
+            <p>Акция действует каждую неделю с открытия до 14:00</p>
+          </div>
+        </div>
+        <div class="promo-card combo-offer">
+          <h3>
+            Утренний комплект всего за 299₽ <span class="old-price">450₽</span>
+          </h3>
+          <div class="combo-items">
+            <div class="combo-item">
+              <span>☕</span>
+              <p>Кофе американо</p>
+            </div>
+            <div class="combo-item">
+              <span>🥐</span>
+              <p>Круассан классический</p>
+            </div>
+            <div class="combo-item">
+              <span>🍓</span>
+              <p>Джем в подарок</p>
+            </div>
+          </div>
+          <p class="time-note">Только с 8:00 до 11:00 ежедневно</p>
+        </div>
+      </section>
+    </main>
+
+    <footer id="contacts" class="soft-footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-col">
+            <h3>Контакты</h3>
+            <a href="tel:+79991234567" class="contact-link">+7 929 009 66 46</a>
+            <a href="mailto:info@pechka.ru" class="contact-link"
+              >info@pechka.ru</a
+            >
+          </div>
+
+          <div class="footer-col">
+            <h3>Адрес</h3>
+            <p>Учкекен, ул. Ленина, 87</p>
+          </div>
+
+          <div class="footer-col">
+            <h3>Время работы</h3>
+            <p>Ежедневно</p>
+            <p>с 8:00 до 22:00</p>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <p class="delivery-info">
+            Заказы принимаются до 21:00. Доставляем в течение 60 минут!
+          </p>
+          <p class="copyright">© 2025 Горячая выпечка. Все права защищены.</p>
+        </div>
+      </div>
+    </footer>
+    <!-- Модальное окно корзины -->
+    <div class="cart-modal" id="cartModal">
+      <div class="cart-content">
+        <h3>Ваша корзина</h3>
+        <div class="cart-items" id="cartItems"></div>
+        <div class="cart-total">Итого: <span id="cartTotal">0</span> ₽</div>
+        <div class="order-form" id="orderForm">
+          <h4>Оформление заказа</h4>
+          <div class="form-group">
+            <input
+              type="text"
+              id="deliveryAddress"
+              placeholder="Адрес доставки"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <input
+              type="text"
+              id="customerName"
+              placeholder="Ваше имя"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <input
+              type="tel"
+              id="customerPhone"
+              placeholder="Телефон"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Способ оплаты:</label>
+            <div class="payment-methods">
+              <div class="payment-method">
+                <input
+                  type="radio"
+                  id="cash"
+                  name="payment"
+                  value="cash"
+                  checked
+                />
+                <label for="cash">Наличные</label>
+              </div>
+              <div class="payment-method">
+                <input type="radio" id="card" name="payment" value="card" />
+                <label for="card">Карта</label>
+              </div>
+              <div class="payment-method">
+                <input type="radio" id="online" name="payment" value="online" />
+                <label for="online">Онлайн</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cart-actions">
+          <button class="close-btn" id="closeCart">Продолжить покупки</button>
+          <button class="order-btn" id="checkout">Оформить заказ</button>
+        </div>
+      </div>
+    </div>
+    <div class="auth-modal" id="authModal">
+      <div class="auth-content">
+        <span class="close-auth">&times;</span>
+        <div id="authForms">
+          <!-- Форма входа -->
+          <div class="auth-form" id="loginForm">
+            <h3>Вход</h3>
+            <form>
+              <input type="email" placeholder="Email" required />
+              <input type="password" placeholder="Пароль" required />
+              <button type="submit">Войти</button>
+            </form>
+            <p class="auth-switch">
+              Нет аккаунта? <a href="#" id="showRegister">Зарегистрируйтесь</a>
+            </p>
+          </div>
+
+          <!-- Форма регистрации (изначально скрыта) -->
+          <div class="auth-form" id="registerForm" style="display: none">
+            <h3>Регистрация</h3>
+            <form>
+              <input type="text" placeholder="Имя" required />
+              <input type="email" placeholder="Email" required />
+              <input type="password" placeholder="Пароль" required />
+              <input type="password" placeholder="Повторите пароль" required />
+              <button type="submit">Зарегистрироваться</button>
+            </form>
+            <p class="auth-switch">
+              Уже есть аккаунт? <a href="#" id="showLogin">Войдите</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Подключение script.js (убедитесь, что он идет ПОСЛЕ модальных окон) -->
+    <script src="script.js"></script>
+  </body>
+</html>
