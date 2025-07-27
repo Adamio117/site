@@ -1,92 +1,105 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const rateLimit = require('express-rate-limit');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const bodyParser = require('body-parser');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
-app.use('/api/', limiter);
+// Инициализация Supabase
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-const users = [];
-const SECRET_KEY = process.env.SECRET_KEY || 'your-secret-key';
-
-// Регистрация
-app.post('/api/register', async (req, res) => {
+// Маршруты API
+app.get('/api/products', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { data, error } = await supabase
+      .from('products')
+      .select('*');
     
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Все поля обязательны' });
-    }
-    
-    if (users.some(user => user.email === email)) {
-      return res.status(400).json({ error: 'Email уже занят' });
-    }
-    
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = { id: Date.now().toString(), name, email, password: hashedPassword };
-    users.push(user);
-    
-    const token = jwt.sign({ userId: user.id, email }, SECRET_KEY, { expiresIn: '1h' });
-    res.json({ success: true, token });
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
-    res.status(500).json({ error: 'Ошибка сервера' });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Логин
-app.post('/api/login', async (req, res) => {
+app.get('/api/orders/:userId', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*, products(*))')
+      .eq('user_id', req.params.userId)
+      .order('created_at', { ascending: false });
     
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email и пароль обязательны' });
-    }
-    
-    const user = users.find(user => user.email === email);
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: 'Неверные данные' });
-    }
-    
-    const token = jwt.sign({ userId: user.id, email }, SECRET_KEY, { expiresIn: '1h' });
-    res.json({ success: true, token });
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
-    res.status(500).json({ error: 'Ошибка сервера' });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Проверка токена
-function authenticateToken(req, res, next) {
-  const token = req.headers['authorization']?.split(' ')[1];
-  if (!token) return res.sendStatus(401);
-
-  jwt.verify(token, SECRET_KEY, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-}
-
-// Защищенный роут для оформления заказа
-app.post('/api/orders', authenticateToken, (req, res) => {
+app.post('/api/checkout', async (req, res) => {
+  const { userId, cartId, address, phone } = req.body;
+  
   try {
-    const order = req.body;
-    if (!order.items || !order.total) {
-      return res.status(400).json({ error: 'Неверные данные заказа' });
-    }
+    // Получаем товары из корзины
+    const { data: cartItems, error: itemsError } = await supabase
+      .from('cart_items')
+      .select('product_id, quantity, price')
+      .eq('cart_id', cartId);
     
-    // Здесь можно сохранить заказ в "базу данных"
-    console.log('Новый заказ от пользователя:', req.user.userId, order);
-    res.json({ success: true, orderId: Date.now().toString() });
+    if (itemsError) throw itemsError;
+
+    if (!cartItems || cartItems.length === 0) {
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+
+    // Рассчитываем общую сумму
+    const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    // Создаем заказ
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        user_id: userId,
+        total,
+        delivery_address: address,
+        phone,
+        status: 'processing'
+      })
+      .select()
+      .single();
+    
+    if (orderError) throw orderError;
+
+    // Добавляем элементы заказа
+    const orderItems = cartItems.map(item => ({
+      order_id: order.id,
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price: item.price
+    }));
+
+    const { error: itemsInsertError } = await supabase
+      .from('order_items')
+      .insert(orderItems);
+    
+    if (itemsInsertError) throw itemsInsertError;
+
+    // Очищаем корзину
+    await supabase
+      .from('cart_items')
+      .delete()
+      .eq('cart_id', cartId);
+    
+    res.json({ success: true, orderId: order.id });
   } catch (err) {
-    res.status(500).json({ error: 'Ошибка сервера' });
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.listen(3000, () => console.log('Сервер запущен на порту 3000'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));

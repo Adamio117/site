@@ -1,5 +1,14 @@
+// Инициализация Supabase
+const SUPABASE_URL = 'https://pgnzjtnzagxrygxzfipu.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnbnpqdG56YWd4cnlneHpmaXB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM1NjcyNTEsImV4cCI6MjA2OTE0MzI1MX0.NlQyo1EdUh3waclUmfYkwgYsQu64OArs9GBNndmmqXg';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Глобальные переменные
+let currentUser = null;
+let cartId = null;
+
 document.addEventListener('DOMContentLoaded', function() {
-  // Элементы авторизации
+  // Элементы интерфейса
   const loginBtn = document.getElementById('loginBtn');
   const authModal = document.getElementById('authModal');
   const closeAuth = document.querySelector('.close-auth');
@@ -7,57 +16,73 @@ document.addEventListener('DOMContentLoaded', function() {
   const showLogin = document.getElementById('showLogin');
   const loginForm = document.getElementById('loginForm');
   const registerForm = document.getElementById('registerForm');
-  
+  const loginFormElement = document.getElementById('loginFormElement');
+  const registerFormElement = document.getElementById('registerFormElement');
+  const cartBtn = document.getElementById('cartBtn');
+  const cartModal = document.getElementById('cartModal');
+  const closeCart = document.querySelector('.close-cart');
+  const cartItemsContainer = document.getElementById('cartItems');
+  const cartCount = document.getElementById('cartCount');
+  const cartTotal = document.getElementById('cartTotal');
+  const checkoutBtn = document.getElementById('checkoutBtn');
+
   // Проверка авторизации при загрузке
-  const token = localStorage.getItem('token');
-  if (token) {
-    loginBtn.textContent = 'Мой профиль';
-  }
-  
-  // Открытие модального окна
-  loginBtn.addEventListener('click', function() {
-    authModal.style.display = 'flex';
+  checkAuth();
+
+  // ========== Обработчики авторизации ==========
+  loginBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    authModal.classList.add('show');
     loginForm.style.display = 'block';
     registerForm.style.display = 'none';
   });
-  
-  // Закрытие модального окна
+
   closeAuth.addEventListener('click', function() {
-    authModal.style.display = 'none';
+    authModal.classList.remove('show');
   });
-  
-  // Переключение на форму регистрации
+
+  authModal.addEventListener('click', function(e) {
+    if (e.target === authModal) {
+      authModal.classList.remove('show');
+    }
+  });
+
   showRegister.addEventListener('click', function(e) {
     e.preventDefault();
     loginForm.style.display = 'none';
     registerForm.style.display = 'block';
   });
-  
-  // Переключение на форму входа
+
   showLogin.addEventListener('click', function(e) {
     e.preventDefault();
     registerForm.style.display = 'none';
     loginForm.style.display = 'block';
   });
-  
-  // Обработка формы входа
-  loginForm.querySelector('form').addEventListener('submit', function(e) {
+
+  loginFormElement.addEventListener('submit', async function(e) {
     e.preventDefault();
     const email = this.querySelector('input[type="email"]').value;
     const password = this.querySelector('input[type="password"]').value;
     
-    // Здесь будет запрос к API для входа
-    console.log('Вход:', email, password);
-    
-    // Пример успешной авторизации:
-    localStorage.setItem('token', 'example-token');
-    loginBtn.textContent = 'Мой профиль';
-    authModal.style.display = 'none';
-    alert('Вы успешно вошли!');
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) throw error;
+      
+      currentUser = data.user;
+      loginBtn.textContent = 'Мой профиль';
+      authModal.classList.remove('show');
+      await initCart();
+      await updateCartDisplay();
+    } catch (err) {
+      alert('Ошибка входа: ' + err.message);
+    }
   });
-  
-  // Обработка формы регистрации
-  registerForm.querySelector('form').addEventListener('submit', function(e) {
+
+  registerFormElement.addEventListener('submit', async function(e) {
     e.preventDefault();
     const name = this.querySelector('input[type="text"]').value;
     const email = this.querySelector('input[type="email"]').value;
@@ -69,370 +94,327 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     
-    // Здесь будет запрос к API для регистрации
-    console.log('Регистрация:', name, email, password);
-    
-    // Пример успешной регистрации:
-    localStorage.setItem('token', 'example-token');
-    loginBtn.textContent = 'Мой профиль';
-    authModal.style.display = 'none';
-    alert('Регистрация успешна!');
-  });
-    // Оформление заказа с проверкой авторизации
-    document.getElementById('checkout').addEventListener('click', async function() {
-        if (!checkAuth()) {
-        alert('Для оформления заказа необходимо войти в систему');
-        authModal.style.display = 'flex';
-        return;
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            phone: ''
+          }
         }
-    
-        const address = document.getElementById('deliveryAddress').value;
-        const name = document.getElementById('customerName').value;
-        const phone = document.getElementById('customerPhone').value;
-        const payment = document.querySelector('input[name="payment"]:checked').value;
-        
-        if (!address || !name || !phone) {
-        alert('Пожалуйста, заполните все обязательные поля');
-        return;
-        }
-    
-        const order = {
-        items: [...cart],
-        total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-        address,
-        name,
-        phone,
-        payment
-        };
-    
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:3000/api/orders', {
-                method: 'POST',
-                headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-                },
-            body: JSON.stringify(order)
-            });
+      });
       
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Ошибка оформления заказа');
-                        
-            alert(`Заказ #${data.orderId} оформлен! Сумма: ${order.total} ₽`);
-                
-            // Очистка корзины
-            cart = [];
-            localStorage.removeItem('cart');
-            updateCart();
-            document.getElementById('cartModal').style.display = 'none';
-        } catch (err) {
-            alert(err.message);
-        }
-    });
-    alert(`Заказ #${data.orderId} оформлен! Сумма: ${order.total} ₽`);
-    // Проверяем, найден ли элемент перед добавлением
-    if (headerRight) {
-    // Добавляем кнопку в начало контейнера
-    headerRight.insertBefore(loginBtn, headerRight.firstChild);
-    } else {
-    console.error('Не найден элемент .header-right для кнопки входа');
+      if (error) throw error;
+      
+      alert('Регистрация успешна! Проверьте вашу почту для подтверждения.');
+      registerForm.style.display = 'none';
+      loginForm.style.display = 'block';
+    } catch (err) {
+      alert('Ошибка регистрации: ' + err.message);
     }
-    // Инициализация корзины
-    let cart = JSON.parse(localStorage.getItem('cart')) || [];
-    const registerModal = document.getElementById('registerModal');
-    
-    // Элементы интерфейса
-    const cartIcon = document.getElementById('cartIcon');
-    const cartCount = document.querySelector('.cart-count');
-    const cartDropdown = document.getElementById('cartDropdown');
-    const cartPreview = document.getElementById('cartPreview');
-    const viewCartBtn = document.getElementById('viewCartBtn');
-    const cartModal = document.getElementById('cartModal');
-    const cartItems = document.getElementById('cartItems');
-    const cartTotal = document.getElementById('cartTotal');
-    const closeCart = document.getElementById('closeCart');
-    const checkoutBtn = document.getElementById('checkout');
-    const notificationBubble = document.getElementById('notificationBubble');
-    const orderForm = document.getElementById('orderForm');
-    
-    // Обновление иконки корзины
-    function updateCartIcon() {
-        const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-        cartCount.textContent = totalItems;
+  });
+
+  // ========== Обработчики корзины ==========
+  cartBtn.addEventListener('click', async function() {
+    cartModal.classList.add('show');
+    await updateCartDisplay();
+  });
+
+  closeCart.addEventListener('click', function() {
+    cartModal.classList.remove('show');
+  });
+
+  cartModal.addEventListener('click', function(e) {
+    if (e.target === cartModal) {
+      cartModal.classList.remove('show');
     }
-    
-    // Показать уведомление
-    function showNotification() {
-        notificationBubble.textContent = '+1';
-        notificationBubble.classList.add('show');
-        
-        setTimeout(() => {
-            notificationBubble.classList.remove('show');
-        }, 1000);
+  });
+
+  checkoutBtn.addEventListener('click', async function() {
+    if (!currentUser) {
+      alert('Для оформления заказа войдите в систему');
+      authModal.classList.add('show');
+      cartModal.classList.remove('show');
+      return;
     }
-    
-    // Отрисовка превью корзины
-    function renderCartPreview() {
-        cartPreview.innerHTML = '';
-        
-        if (cart.length === 0) {
-            cartPreview.innerHTML = '<p>Корзина пуста</p>';
-            return;
-        }
-        
-        cart.forEach(item => {
-            const itemElement = document.createElement('div');
-            itemElement.className = 'preview-item';
-            itemElement.innerHTML = `
-                <span>${item.name} × ${item.quantity}</span>
-                <span>${item.price * item.quantity} ₽</span>
-            `;
-            cartPreview.appendChild(itemElement);
-        });
-    }
-    
-    // Отрисовка полной корзины
-    function renderCart() {
-        cartItems.innerHTML = '';
-        
-        if (cart.length === 0) {
-            cartItems.innerHTML = '<p>Корзина пуста</p>';
-            cartTotal.textContent = '0';
-            orderForm.style.display = 'none';
-            return;
-        }
-        
-        let total = 0;
-        
-        cart.forEach((item, index) => {
-            total += item.price * item.quantity;
-            
-            const cartItem = document.createElement('div');
-            cartItem.className = 'cart-item';
-            cartItem.innerHTML = `
-                <div class="cart-item-info">
-                    <h4>${item.name}</h4>
-                    <p>${item.price} ₽ × ${item.quantity} = ${item.price * item.quantity} ₽</p>
-                </div>
-                <div class="cart-item-actions">
-                    <button onclick="changeQuantity(${index}, -1)">-</button>
-                    <span>${item.quantity}</span>
-                    <button onclick="changeQuantity(${index}, 1)">+</button>
-                    <button onclick="removeFromCart(${index})">×</button>
-                </div>
-            `;
-            
-            cartItems.appendChild(cartItem);
-        });
-        
-        cartTotal.textContent = total;
-        orderForm.style.display = 'block';
-    }
-    
-    // Сохранение корзины
-    function saveCart() {
-        localStorage.setItem('cart', JSON.stringify(cart));
-        updateCartIcon();
-        renderCartPreview();
-    }
-    
-    // Глобальные функции для работы с корзиной
-    window.addToCart = function(name, price, button) {
-    // Анимация кнопки
-    button.classList.add('added-to-cart');
-    setTimeout(() => {
-        button.classList.remove('added-to-cart');
-    }, 500);
-    
-    // Показать уведомление
-    showNotification();
-    
-    // Добавить товар в корзину
-    const existingItem = cart.find(item => item.name === name);
-    
-    if (existingItem) {
-        existingItem.quantity += 1;
-    } else {
-        cart.push({
-            name,
-            price: parseInt(price),
-            quantity: 1
-        });
-    }
-    
-    saveCart();
-    renderCart();
-    // Открытие модального окна входа
-    document.getElementById('loginBtn').addEventListener('click', function() {
-        document.getElementById('authModal').style.display = 'block';
-    });
 
-    // Переключение между окнами входа и регистрации
-    document.getElementById('showRegister').addEventListener('click', function(e) {
-        e.preventDefault();
-        document.getElementById('authModal').style.display = 'none';
-        document.getElementById('registerModal').style.display = 'block';
-    });
-
-    document.getElementById('showLogin').addEventListener('click', function(e) {
-        e.preventDefault();
-        document.getElementById('registerModal').style.display = 'none';
-        document.getElementById('authModal').style.display = 'block';
-    });
-
-    // Закрытие модальных окон
-    document.querySelectorAll('.close-auth').forEach(function(closeBtn) {
-        closeBtn.addEventListener('click', function() {
-            this.closest('.auth-modal').style.display = 'none';
-        });
-    });
-    // После добавления кнопки
-    console.log('Кнопка входа создана:', loginBtn);
-    console.log('Родительский элемент:', loginBtn.parentElement);
-
-    // Проверка стилей
-    setTimeout(() => {
-    const styles = window.getComputedStyle(loginBtn);
-    console.log('Стили кнопки:', {
-        display: styles.display,
-        visibility: styles.visibility,
-        opacity: styles.opacity
-    });
-    }, 500);
-    // Показать/скрыть модалки
-    loginBtn.addEventListener('click', () => authModal.style.display = 'flex');
-    showRegister.addEventListener('click', () => {
-    authModal.style.display = 'none';
-    registerModal.style.display = 'flex';
-    });
-    showLogin.addEventListener('click', () => {
-    registerModal.style.display = 'none';
-    authModal.style.display = 'flex';
-    });
-
-    closeAuthBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        authModal.style.display = 'none';
-        registerModal.style.display = 'none';
-    });
-    });
-
-    // Обработка форм
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const email = this.querySelector('input[type="email"]').value;
-    const password = this.querySelector('input[type="password"]').value;
+    const address = prompt('Введите адрес доставки:');
+    if (!address) return;
     
-    // Здесь будет запрос к серверу
-    console.log('Login attempt:', email, password);
-    alert('Вход выполнен!');
-    authModal.style.display = 'none';
-    });
-
-    document.getElementById('registerForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const name = this.querySelector('input[type="text"]').value;
-    const email = this.querySelector('input[type="email"]').value;
-    const password = this.querySelectorAll('input[type="password"]')[0].value;
-    const confirmPassword = this.querySelectorAll('input[type="password"]')[1].value;
+    const phone = prompt('Введите ваш телефон:');
+    if (!phone) return;
     
-    if (password !== confirmPassword) {
-        alert('Пароли не совпадают!');
+    try {
+      // Получаем товары из корзины
+      const { data: cartItems, error: itemsError } = await supabase
+        .from('cart_items')
+        .select('product_id, quantity, price, products(name)')
+        .eq('cart_id', cartId);
+      
+      if (itemsError) throw itemsError;
+
+      if (!cartItems || cartItems.length === 0) {
+        alert('Корзина пуста');
         return;
+      }
+
+      // Рассчитываем общую сумму
+      const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+      // Создаем заказ
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: currentUser.id,
+          total,
+          delivery_address: address,
+          phone,
+          status: 'processing'
+        })
+        .select()
+        .single();
+      
+      if (orderError) throw orderError;
+
+      // Добавляем элементы заказа
+      const orderItems = cartItems.map(item => ({
+        order_id: order.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price: item.price
+      }));
+
+      const { error: itemsInsertError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+      
+      if (itemsInsertError) throw itemsInsertError;
+
+      // Очищаем корзину
+      await supabase
+        .from('cart_items')
+        .delete()
+        .eq('cart_id', cartId);
+      
+      await supabase
+        .from('cart_sessions')
+        .delete()
+        .eq('id', cartId);
+      
+      cartId = null;
+      await initCart();
+      await updateCartDisplay();
+      cartModal.classList.remove('show');
+
+      alert(`Заказ #${order.id} успешно оформлен! Сумма: ${total}₽`);
+    } catch (err) {
+      alert('Ошибка при оформлении заказа: ' + err.message);
+    }
+  });
+});
+
+// Функция проверки авторизации
+async function checkAuth() {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    currentUser = user;
+    document.getElementById('loginBtn').textContent = 'Мой профиль';
+    await initCart();
+    await updateCartDisplay();
+  }
+}
+
+// Инициализация корзины
+async function initCart() {
+  if (!currentUser) {
+    // Для гостей - используем localStorage
+    cartId = localStorage.getItem('cart_id');
+    if (!cartId) {
+      cartId = crypto.randomUUID();
+      localStorage.setItem('cart_id', cartId);
+      
+      // Создаем сессию корзины в Supabase
+      const { error } = await supabase
+        .from('cart_sessions')
+        .insert({ id: cartId });
+      
+      if (error) console.error('Ошибка создания корзины:', error);
+    }
+    return;
+  }
+
+  // Для авторизованных пользователей
+  const { data, error } = await supabase
+    .from('cart_sessions')
+    .select('id')
+    .eq('user_id', currentUser.id)
+    .gt('expires_at', new Date().toISOString())
+    .single();
+
+  if (data) {
+    cartId = data.id;
+  } else {
+    // Создаем новую корзину
+    const { data: newCart, error: cartError } = await supabase
+      .from('cart_sessions')
+      .insert({ user_id: currentUser.id })
+      .select()
+      .single();
+    
+    if (cartError) throw cartError;
+    cartId = newCart.id;
+  }
+}
+
+// Добавление товара в корзину
+async function addToCart(productName, productPrice, button) {
+  if (!cartId) await initCart();
+  
+  // Находим ID продукта по имени
+  const { data: product, error } = await supabase
+    .from('products')
+    .select('id')
+    .eq('name', productName)
+    .single();
+
+  if (error || !product) {
+    alert('Ошибка при добавлении товара');
+    return;
+  }
+
+  try {
+    // Проверяем, есть ли уже такой товар в корзине
+    const { data: existingItem, error: itemError } = await supabase
+      .from('cart_items')
+      .select('id, quantity')
+      .eq('cart_id', cartId)
+      .eq('product_id', product.id)
+      .maybeSingle();
+
+    if (itemError) throw itemError;
+
+    if (existingItem) {
+      // Увеличиваем количество
+      const { error: updateError } = await supabase
+        .from('cart_items')
+        .update({ quantity: existingItem.quantity + 1 })
+        .eq('id', existingItem.id);
+      
+      if (updateError) throw updateError;
+    } else {
+      // Добавляем новый товар
+      const { error: insertError } = await supabase
+        .from('cart_items')
+        .insert({
+          cart_id: cartId,
+          product_id: product.id,
+          price: productPrice,
+          quantity: 1
+        });
+      
+      if (insertError) throw insertError;
+    }
+
+    button.textContent = 'Добавлено!';
+    setTimeout(() => {
+      button.textContent = 'Добавить';
+    }, 2000);
+    
+    await updateCartDisplay();
+  } catch (err) {
+    alert('Ошибка при добавлении в корзину: ' + err.message);
+  }
+}
+
+// Обновление отображения корзины
+async function updateCartDisplay() {
+  if (!cartId) return;
+  
+  try {
+    const { data: items, error } = await supabase
+      .from('cart_items')
+      .select(`
+        id,
+        quantity,
+        price,
+        products (name)
+      `)
+      .eq('cart_id', cartId);
+    
+    if (error) throw error;
+    
+    cartItemsContainer.innerHTML = '';
+    let total = 0;
+    let totalCount = 0;
+    
+    if (items && items.length > 0) {
+      items.forEach(item => {
+        const itemTotal = item.price * item.quantity;
+        total += itemTotal;
+        totalCount += item.quantity;
+        
+        const itemElement = document.createElement('div');
+        itemElement.className = 'cart-item';
+        itemElement.innerHTML = `
+          <div class="cart-item-name">${item.products.name}</div>
+          <div class="cart-item-price">${item.price} ₽</div>
+          <div class="cart-item-quantity">
+            <button onclick="updateQuantity(${item.id}, ${item.quantity - 1})">-</button>
+            <span>${item.quantity}</span>
+            <button onclick="updateQuantity(${item.id}, ${item.quantity + 1})">+</button>
+          </div>
+          <div class="cart-item-total">${itemTotal} ₽</div>
+          <button class="remove-item" onclick="removeFromCart(${item.id})">×</button>
+        `;
+        cartItemsContainer.appendChild(itemElement);
+      });
+    } else {
+      cartItemsContainer.innerHTML = '<p>Корзина пуста</p>';
     }
     
-    // Здесь будет запрос к серверу
-    console.log('Registration:', {name, email, password});
-    alert('Регистрация успешна!');
-    registerModal.style.display = 'none';
-    });
-};
-    
-    window.changeQuantity = function(index, change) {
-        cart[index].quantity += change;
-        
-        if (cart[index].quantity <= 0) {
-            cart.splice(index, 1);
-        }
-        
-        saveCart();
-        renderCart();
-    };
-    
-    window.removeFromCart = function(index) {
-        cart.splice(index, 1);
-        saveCart();
-        renderCart();
-    };
-    
-    // Обработчики событий
-    cartIcon.addEventListener('click', () => {
-        cartModal.style.display = 'flex';
-        renderCart();
-    });
-    
-    viewCartBtn.addEventListener('click', () => {
-        cartModal.style.display = 'flex';
-        renderCart();
-    });
-    
-    closeCart.addEventListener('click', () => {
-        cartModal.style.display = 'none';
-    });
-    
-    checkoutBtn.addEventListener('click', () => {
-        const address = document.getElementById('deliveryAddress').value;
-        const name = document.getElementById('customerName').value;
-        const phone = document.getElementById('customerPhone').value;
-        const payment = document.querySelector('input[name="payment"]:checked').value;
-        
-        if (!address || !name || !phone) {
-            alert('Пожалуйста, заполните все обязательные поля');
-            return;
-        }
-        
-        const order = {
-            items: [...cart],
-            total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-            address,
-            name,
-            phone,
-            payment,
-            date: new Date().toLocaleString()
-        };
-        
-        // Здесь можно отправить заказ на сервер
-        console.log('Заказ оформлен:', order);
-        
-        alert(`Заказ оформлен! Сумма: ${order.total} ₽\nАдрес доставки: ${address}`);
-        
-        // Очистка корзины
-        cart = [];
-        saveCart();
-        renderCart();
-        cartModal.style.display = 'none';
-        
-        // Очистка формы
-        document.getElementById('deliveryAddress').value = '';
-        document.getElementById('customerName').value = '';
-        document.getElementById('customerPhone').value = '';
-    });
-    
+    cartTotal.textContent = total;
+    cartCount.textContent = totalCount;
+  } catch (err) {
+    console.error('Ошибка при загрузке корзины:', err);
+  }
+}
 
+// Обновление количества товара
+async function updateQuantity(itemId, newQuantity) {
+  if (newQuantity < 1) {
+    await removeFromCart(itemId);
+    return;
+  }
+  
+  try {
+    const { error } = await supabase
+      .from('cart_items')
+      .update({ quantity: newQuantity })
+      .eq('id', itemId);
     
-    // Остальной код (навигация, таймеры и т.д.)
-    document.querySelectorAll('.main-nav a').forEach(anchor => {
-        anchor.addEventListener('click', function(e) {
-            e.preventDefault();
-            const targetId = this.getAttribute('href');
-            const targetElement = document.querySelector(targetId);
-            window.scrollTo({
-                top: targetElement.offsetTop - 80,
-                behavior: 'smooth'
-            });
-        });
-    });
-    // Инициализация
-    checkAuth();
-});
+    if (error) throw error;
+    
+    await updateCartDisplay();
+  } catch (err) {
+    alert('Ошибка при обновлении количества: ' + err.message);
+  }
+}
+
+// Удаление товара из корзины
+async function removeFromCart(itemId) {
+  try {
+    const { error } = await supabase
+      .from('cart_items')
+      .delete()
+      .eq('id', itemId);
+    
+    if (error) throw error;
+    
+    await updateCartDisplay();
+  } catch (err) {
+    alert('Ошибка при удалении товара: ' + err.message);
+  }
+}

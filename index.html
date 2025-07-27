@@ -22,25 +22,10 @@
             <a href="#promo">Акции</a>
             <a href="#contacts">Контакты</a>
           </nav>
-        </div>
-      </div>
-      <!-- В шапке (header) изменим блок header-right -->
-      <div class="header-right">
-        <!-- Кнопка входа/профиля -->
-        <button class="login-btn" id="loginBtn">Вход</button>
-
-        <!-- Корзина -->
-        <div class="cart-container">
-          <div class="cart-icon" id="cartIcon">
-            🛒 <span class="cart-count">0</span>
-          </div>
-          <div class="notification-bubble" id="notificationBubble"></div>
-          <div class="cart-dropdown" id="cartDropdown">
-            <div class="cart-preview" id="cartPreview"></div>
-            <button class="view-cart-btn" id="viewCartBtn">
-              Перейти в корзину
-            </button>
-          </div>
+          <button class="login-btn" id="loginBtn">Вход</button>
+          <button class="cart-btn" id="cartBtn">
+            Корзина <span id="cartCount">0</span>
+          </button>
         </div>
       </div>
     </header>
@@ -351,68 +336,8 @@
         </div>
       </div>
     </footer>
-    <!-- Модальное окно корзины -->
-    <div class="cart-modal" id="cartModal">
-      <div class="cart-content">
-        <h3>Ваша корзина</h3>
-        <div class="cart-items" id="cartItems"></div>
-        <div class="cart-total">Итого: <span id="cartTotal">0</span> ₽</div>
-        <div class="order-form" id="orderForm">
-          <h4>Оформление заказа</h4>
-          <div class="form-group">
-            <input
-              type="text"
-              id="deliveryAddress"
-              placeholder="Адрес доставки"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <input
-              type="text"
-              id="customerName"
-              placeholder="Ваше имя"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <input
-              type="tel"
-              id="customerPhone"
-              placeholder="Телефон"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label>Способ оплаты:</label>
-            <div class="payment-methods">
-              <div class="payment-method">
-                <input
-                  type="radio"
-                  id="cash"
-                  name="payment"
-                  value="cash"
-                  checked
-                />
-                <label for="cash">Наличные</label>
-              </div>
-              <div class="payment-method">
-                <input type="radio" id="card" name="payment" value="card" />
-                <label for="card">Карта</label>
-              </div>
-              <div class="payment-method">
-                <input type="radio" id="online" name="payment" value="online" />
-                <label for="online">Онлайн</label>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="cart-actions">
-          <button class="close-btn" id="closeCart">Продолжить покупки</button>
-          <button class="order-btn" id="checkout">Оформить заказ</button>
-        </div>
-      </div>
-    </div>
+
+    <!-- Модальное окно авторизации -->
     <div class="auth-modal" id="authModal">
       <div class="auth-content">
         <span class="close-auth">&times;</span>
@@ -420,7 +345,7 @@
           <!-- Форма входа -->
           <div class="auth-form" id="loginForm">
             <h3>Вход</h3>
-            <form>
+            <form id="loginFormElement">
               <input type="email" placeholder="Email" required />
               <input type="password" placeholder="Пароль" required />
               <button type="submit">Войти</button>
@@ -430,10 +355,10 @@
             </p>
           </div>
 
-          <!-- Форма регистрации (изначально скрыта) -->
+          <!-- Форма регистрации -->
           <div class="auth-form" id="registerForm" style="display: none">
             <h3>Регистрация</h3>
-            <form>
+            <form id="registerFormElement">
               <input type="text" placeholder="Имя" required />
               <input type="email" placeholder="Email" required />
               <input type="password" placeholder="Пароль" required />
@@ -447,8 +372,20 @@
         </div>
       </div>
     </div>
-
-    <!-- Подключение script.js (убедитесь, что он идет ПОСЛЕ модальных окон) -->
+    <!-- Модальное окно корзины -->
+    <div class="cart-modal" id="cartModal">
+      <div class="cart-content">
+        <span class="close-cart">&times;</span>
+        <h3>Ваша корзина</h3>
+        <div class="cart-items" id="cartItems">
+          <!-- Товары будут добавляться сюда -->
+        </div>
+        <div class="cart-total">Итого: <span id="cartTotal">0</span> ₽</div>
+        <button class="order-btn" id="checkoutBtn">Оформить заказ</button>
+      </div>
+    </div>
+    <!-- Подключаем Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="script.js"></script>
   </body>
 </html>
