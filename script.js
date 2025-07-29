@@ -1,7 +1,14 @@
 // Инициализация Supabase
 const SUPABASE_URL = 'https://pgnzjtnzagxrygxzfipu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnbnpqdG56YWd4cnlneHpmaXB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM1NjcyNTEsImV4cCI6MjA2OTE0MzI1MX0.NlQyo1EdUh3waclUmfYkwgYsQu64OArs9GBNndmmqXg';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Проверяем, что Supabase загружен
+if (typeof supabase === 'undefined') {
+  console.error('Supabase не загружен! Проверьте подключение скрипта');
+} else {
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  console.log('Supabase инициализирован', supabase);
+}
 
 // Глобальные переменные
 let currentUser = null;
@@ -37,6 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Обработчик кнопки входа
   loginBtn.addEventListener('click', function(e) {
     e.preventDefault();
+    console.log('Кнопка входа нажата');
     authModal.classList.add('show');
     loginForm.style.display = 'block';
     registerForm.style.display = 'none';

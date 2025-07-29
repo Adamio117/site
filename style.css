@@ -334,7 +334,7 @@ body {
   justify-content: center;
   align-items: center;
 }
-
+/*
 .auth-modal.show {
   display: flex;
 }
@@ -348,7 +348,17 @@ body {
   position: relative;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
+*/
+.auth-modal.show {
+  display: flex !important;
+  background-color: rgba(0,0,0,0.8) !important;
+}
 
+.auth-content {
+  background: white !important;
+  padding: 20px !important;
+  border-radius: 10px !important;
+}
 .close-auth {
   position: absolute;
   top: 15px;
