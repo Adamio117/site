@@ -1,9 +1,19 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
+
+// Разрешить все origins (для разработки)
+app.use(cors());
+
+// Или настроить конкретные домены
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://your-site.com'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+const { createClient } = require('@supabase/supabase-js');
 app.use(cors());
 app.use(express.json());
 

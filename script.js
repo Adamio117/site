@@ -7,8 +7,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null;
 let cartId = null;
 
+// Делаем функции глобальными
+window.addToCart = addToCart;
+window.updateQuantity = updateQuantity;
+window.removeFromCart = removeFromCart;
+
 document.addEventListener('DOMContentLoaded', function() {
-  // Элементы интерфейса
+  // Получаем элементы интерфейса
   const loginBtn = document.getElementById('loginBtn');
   const authModal = document.getElementById('authModal');
   const closeAuth = document.querySelector('.close-auth');
@@ -21,15 +26,15 @@ document.addEventListener('DOMContentLoaded', function() {
   const cartBtn = document.getElementById('cartBtn');
   const cartModal = document.getElementById('cartModal');
   const closeCart = document.querySelector('.close-cart');
-  const cartItemsContainer = document.getElementById('cartItems');
-  const cartCount = document.getElementById('cartCount');
-  const cartTotal = document.getElementById('cartTotal');
   const checkoutBtn = document.getElementById('checkoutBtn');
+
+  // Инициализация - скрываем корзину по умолчанию
+  cartBtn.style.display = 'none';
 
   // Проверка авторизации при загрузке
   checkAuth();
 
-  // ========== Обработчики авторизации ==========
+  // Обработчик кнопки входа
   loginBtn.addEventListener('click', function(e) {
     e.preventDefault();
     authModal.classList.add('show');
@@ -37,6 +42,8 @@ document.addEventListener('DOMContentLoaded', function() {
     registerForm.style.display = 'none';
   });
 
+  // Остальной код остается без изменений...
+  // ========== Обработчики авторизации ==========
   closeAuth.addEventListener('click', function() {
     authModal.classList.remove('show');
   });
@@ -73,10 +80,9 @@ document.addEventListener('DOMContentLoaded', function() {
       if (error) throw error;
       
       currentUser = data.user;
-      loginBtn.textContent = 'Мой профиль';
+      updateAuthUI();
       authModal.classList.remove('show');
       await initCart();
-      await updateCartDisplay();
     } catch (err) {
       alert('Ошибка входа: ' + err.message);
     }
@@ -147,7 +153,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!phone) return;
     
     try {
-      // Получаем товары из корзины
       const { data: cartItems, error: itemsError } = await supabase
         .from('cart_items')
         .select('product_id, quantity, price, products(name)')
@@ -160,10 +165,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      // Рассчитываем общую сумму
       const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-      // Создаем заказ
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -178,7 +181,6 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (orderError) throw orderError;
 
-      // Добавляем элементы заказа
       const orderItems = cartItems.map(item => ({
         order_id: order.id,
         product_id: item.product_id,
@@ -192,7 +194,6 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (itemsInsertError) throw itemsInsertError;
 
-      // Очищаем корзину
       await supabase
         .from('cart_items')
         .delete()
@@ -215,78 +216,85 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// Функция проверки авторизации
-async function checkAuth() {
-  const { data: { user } } = await supabase.auth.getUser();
+// Обновление UI после авторизации
+function updateAuthUI() {
+  const loginBtn = document.getElementById('loginBtn');
+  const cartBtn = document.getElementById('cartBtn');
   
-  if (user) {
+  if (currentUser) {
+    loginBtn.textContent = 'Мой профиль';
+    cartBtn.style.display = 'flex';
+  } else {
+    loginBtn.textContent = 'Вход';
+    cartBtn.style.display = 'none';
+  }
+}
+
+// Проверка авторизации
+async function checkAuth() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
     currentUser = user;
-    document.getElementById('loginBtn').textContent = 'Мой профиль';
-    await initCart();
-    await updateCartDisplay();
+    updateAuthUI();
+    
+    if (user) {
+      await initCart();
+    }
+  } catch (error) {
+    console.error('Ошибка проверки авторизации:', error);
   }
 }
 
 // Инициализация корзины
 async function initCart() {
-  if (!currentUser) {
-    // Для гостей - используем localStorage
-    cartId = localStorage.getItem('cart_id');
-    if (!cartId) {
-      cartId = crypto.randomUUID();
-      localStorage.setItem('cart_id', cartId);
-      
-      // Создаем сессию корзины в Supabase
-      const { error } = await supabase
-        .from('cart_sessions')
-        .insert({ id: cartId });
-      
-      if (error) console.error('Ошибка создания корзины:', error);
-    }
-    return;
-  }
+  if (!currentUser) return;
 
-  // Для авторизованных пользователей
-  const { data, error } = await supabase
-    .from('cart_sessions')
-    .select('id')
-    .eq('user_id', currentUser.id)
-    .gt('expires_at', new Date().toISOString())
-    .single();
-
-  if (data) {
-    cartId = data.id;
-  } else {
-    // Создаем новую корзину
-    const { data: newCart, error: cartError } = await supabase
+  try {
+    const { data, error } = await supabase
       .from('cart_sessions')
-      .insert({ user_id: currentUser.id })
-      .select()
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .gt('expires_at', new Date().toISOString())
       .single();
+
+    if (error) throw error;
+
+    cartId = data?.id || null;
     
-    if (cartError) throw cartError;
-    cartId = newCart.id;
+    if (!cartId) {
+      const { data: newCart, error: cartError } = await supabase
+        .from('cart_sessions')
+        .insert({ user_id: currentUser.id })
+        .select()
+        .single();
+      
+      if (cartError) throw cartError;
+      cartId = newCart.id;
+    }
+  } catch (error) {
+    console.error('Ошибка инициализации корзины:', error);
   }
 }
 
 // Добавление товара в корзину
 async function addToCart(productName, productPrice, button) {
-  if (!cartId) await initCart();
-  
-  // Находим ID продукта по имени
-  const { data: product, error } = await supabase
-    .from('products')
-    .select('id')
-    .eq('name', productName)
-    .single();
-
-  if (error || !product) {
-    alert('Ошибка при добавлении товара');
+  if (!currentUser) {
+    alert('Для добавления товаров в корзину войдите в систему');
+    document.getElementById('authModal').classList.add('show');
     return;
   }
 
+  if (!cartId) await initCart();
+  
   try {
-    // Проверяем, есть ли уже такой товар в корзине
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id')
+      .eq('name', productName)
+      .single();
+
+    if (productError || !product) throw productError || new Error('Товар не найден');
+
     const { data: existingItem, error: itemError } = await supabase
       .from('cart_items')
       .select('id, quantity')
@@ -297,7 +305,6 @@ async function addToCart(productName, productPrice, button) {
     if (itemError) throw itemError;
 
     if (existingItem) {
-      // Увеличиваем количество
       const { error: updateError } = await supabase
         .from('cart_items')
         .update({ quantity: existingItem.quantity + 1 })
@@ -305,7 +312,6 @@ async function addToCart(productName, productPrice, button) {
       
       if (updateError) throw updateError;
     } else {
-      // Добавляем новый товар
       const { error: insertError } = await supabase
         .from('cart_items')
         .insert({
@@ -324,8 +330,8 @@ async function addToCart(productName, productPrice, button) {
     }, 2000);
     
     await updateCartDisplay();
-  } catch (err) {
-    alert('Ошибка при добавлении в корзину: ' + err.message);
+  } catch (error) {
+    alert('Ошибка при добавлении в корзину: ' + error.message);
   }
 }
 
@@ -345,6 +351,10 @@ async function updateCartDisplay() {
       .eq('cart_id', cartId);
     
     if (error) throw error;
+
+    const cartItemsContainer = document.getElementById('cartItems');
+    const cartTotal = document.getElementById('cartTotal');
+    const cartCount = document.getElementById('cartCount');
     
     cartItemsContainer.innerHTML = '';
     let total = 0;
@@ -377,8 +387,8 @@ async function updateCartDisplay() {
     
     cartTotal.textContent = total;
     cartCount.textContent = totalCount;
-  } catch (err) {
-    console.error('Ошибка при загрузке корзины:', err);
+  } catch (error) {
+    console.error('Ошибка обновления корзины:', error);
   }
 }
 
@@ -398,8 +408,8 @@ async function updateQuantity(itemId, newQuantity) {
     if (error) throw error;
     
     await updateCartDisplay();
-  } catch (err) {
-    alert('Ошибка при обновлении количества: ' + err.message);
+  } catch (error) {
+    alert('Ошибка при обновлении количества: ' + error.message);
   }
 }
 
@@ -414,7 +424,7 @@ async function removeFromCart(itemId) {
     if (error) throw error;
     
     await updateCartDisplay();
-  } catch (err) {
-    alert('Ошибка при удалении товара: ' + err.message);
+  } catch (error) {
+    alert('Ошибка при удалении товара: ' + error.message);
   }
 }
