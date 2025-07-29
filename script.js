@@ -5,6 +5,7 @@ if (typeof supabase === 'undefined') {
   document.body.innerHTML = `<div style="color:red;padding:20px;">${errorMsg}</div>`;
   throw new Error(errorMsg);
 }
+
 // Инициализация
 const SUPABASE_URL = 'https://my-website-cjed.onrender.com'; // Замените на ваш
 const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
@@ -58,8 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
     registerForm.style.display = 'none';
   });
 
-  // Остальной код остается без изменений...
-  // ========== Обработчики авторизации ==========
+  // Обработчики авторизации
   closeAuth.addEventListener('click', function() {
     authModal.classList.remove('show');
   });
@@ -104,55 +104,46 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-registerFormElement.addEventListener('submit', async function(e) {
-  e.preventDefault();
+  registerFormElement.addEventListener('submit', async function(e) {
+    e.preventDefault();
 
-  // Получаем данные формы
-  const name = this.querySelector('input[type="text"]').value;
-  const email = this.querySelector('input[type="email"]').value;
-  const password = this.querySelectorAll('input[type="password"]')[0].value;
-  const confirmPassword = this.querySelectorAll('input[type="password"]')[1].value;
+    const name = this.querySelector('input[type="text"]').value;
+    const email = this.querySelector('input[type="email"]').value;
+    const password = this.querySelectorAll('input[type="password"]')[0].value;
+    const confirmPassword = this.querySelectorAll('input[type="password"]')[1].value;
 
-  // Проверка паролей
-  if (password !== confirmPassword) {
-    alert('Пароли не совпадают!');
-    return;
-  }
-
-  // Блок try-catch для обработки ошибок
-  try {
-    console.log('Отправка данных на сервер...', { email, name });
-    // 1. Отправляем запрос в Supabase
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name }
-      }
-    });
-
-    // 2. Обрабатываем ошибки от Supabase
-    if (error) {
-      console.error('Ошибка Supabase:', error);
-      throw new Error(error.message || 'Неизвестная ошибка Supabase');
+    if (password !== confirmPassword) {
+      alert('Пароли не совпадают!');
+      return;
     }
 
-    // 3. Успешная регистрация
-    console.log('Успешный ответ сервера:', data);
-    alert('Регистрация завершена! Проверьте почту для подтверждения.');
-    
-    // Переключаем на форму входа
-    registerForm.style.display = 'none';
-    loginForm.style.display = 'block';
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name }
+        }
+      });
 
-  } catch (err) {
-    // 4. Обработка всех других ошибок (сеть, CORS и т.д.)
-    console.error('Полная ошибка регистрации:', err);
-    alert(`Ошибка регистрации: ${err.message || 'Сервер не отвечает'}`);
-  }
-});
+      if (error) {
+        console.error('Ошибка Supabase:', error);
+        throw new Error(error.message || 'Неизвестная ошибка Supabase');
+      }
 
-  // ========== Обработчики корзины ==========
+      console.log('Успешный ответ сервера:', data);
+      alert('Регистрация завершена! Проверьте почту для подтверждения.');
+      
+      registerForm.style.display = 'none';
+      loginForm.style.display = 'block';
+
+    } catch (err) {
+      console.error('Полная ошибка регистрации:', err);
+      alert(`Ошибка регистрации: ${err.message || 'Сервер не отвечает'}`);
+    }
+  });
+
+  // Обработчики корзины
   cartBtn.addEventListener('click', async function() {
     cartModal.classList.add('show');
     await updateCartDisplay();
