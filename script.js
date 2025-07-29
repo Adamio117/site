@@ -5,7 +5,7 @@ if (!window.supabase) {
 }
 // Инициализация
 const SUPABASE_URL = 'https://my-website-cjed.onrender.com'; // Замените на ваш
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnbnpqdG56YWd4cnlneHpmaXB1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzU2NzI1MSwiZXhwIjoyMDY5MTQzMjUxfQ.K5JtaMMgPEaYMKPZhjeSP5GPhm8bZEccBq2gHKLTn-k';
+const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
@@ -102,39 +102,37 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  registerFormElement.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const name = this.querySelector('input[type="text"]').value;
-    const email = this.querySelector('input[type="email"]').value;
-    const password = this.querySelectorAll('input[type="password"]')[0].value;
-    const confirmPassword = this.querySelectorAll('input[type="password"]')[1].value;
+registerFormElement.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const email = this.querySelector('input[type="email"]').value;
+  const password = this.querySelectorAll('input[type="password"]')[0].value;
+  const name = this.querySelector('input[type="text"]').value;
+
+  try {
+    console.log('Отправка данных:', { email, password }); // Логируем данные
     
-    if (password !== confirmPassword) {
-      alert('Пароли не совпадают!');
-      return;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name }
+      }
+    });
+
+    if (error) {
+      console.error('Ошибка Supabase:', error);
+      throw error;
     }
+
+    console.log('Ответ сервера:', data); // Логируем ответ
+    alert('Проверьте почту для подтверждения!');
     
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            phone: ''
-          }
-        }
-      });
-      
-      if (error) throw error;
-      
-      alert('Регистрация успешна! Проверьте вашу почту для подтверждения.');
-      registerForm.style.display = 'none';
-      loginForm.style.display = 'block';
-    } catch (err) {
-      alert('Ошибка регистрации: ' + err.message);
-    }
-  });
+  } catch (err) {
+    console.error('Полная ошибка:', err);
+    alert('Ошибка регистрации: ' + (err.message || 'Нет ответа от сервера'));
+  }
+});
 
   // ========== Обработчики корзины ==========
   cartBtn.addEventListener('click', async function() {
