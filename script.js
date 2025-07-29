@@ -1,14 +1,11 @@
+console.log('Supabase loaded:', typeof window.supabase);
 // Инициализация Supabase
-const SUPABASE_URL = 'https://pgnzjtnzagxrygxzfipu.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnbnpqdG56YWd4cnlneHpmaXB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM1NjcyNTEsImV4cCI6MjA2OTE0MzI1MX0.NlQyo1EdUh3waclUmfYkwgYsQu64OArs9GBNndmmqXg';
+const SUPABASE_URL = 'https://pqmztgzagxrygxzflpu.supabase.co';
+const SUPABASE_KEY = 'eynhb6c1d0J7U2I1M1i5nR5cC16Ikpx0C19.eyOpc3N10iJzaX8hYmFzzSIsIn11Zi16In8nbnpqdG56YMd4cn1neHpmax81I1idcm9sZS16InFuD';
 
-// Проверяем, что Supabase загружен
-if (typeof supabase === 'undefined') {
-  console.error('Supabase не загружен! Проверьте подключение скрипта');
-} else {
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  console.log('Supabase инициализирован', supabase);
-}
+// Создаем клиент Supabase
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+console.log("Supabase инициализирован", supabase);
 
 // Глобальные переменные
 let currentUser = null;
