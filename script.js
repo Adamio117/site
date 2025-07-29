@@ -104,14 +104,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
 registerFormElement.addEventListener('submit', async function(e) {
   e.preventDefault();
-  
+
+  // Получаем данные формы
+  const name = this.querySelector('input[type="text"]').value;
   const email = this.querySelector('input[type="email"]').value;
   const password = this.querySelectorAll('input[type="password"]')[0].value;
-  const name = this.querySelector('input[type="text"]').value;
+  const confirmPassword = this.querySelectorAll('input[type="password"]')[1].value;
 
+  // Проверка паролей
+  if (password !== confirmPassword) {
+    alert('Пароли не совпадают!');
+    return;
+  }
+
+  // Блок try-catch для обработки ошибок
   try {
-    console.log('Отправка данных:', { email, password }); // Логируем данные
-    
+    console.log('Отправка данных на сервер...', { email, name });
+    // 1. Отправляем запрос в Supabase
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -120,17 +129,24 @@ registerFormElement.addEventListener('submit', async function(e) {
       }
     });
 
+    // 2. Обрабатываем ошибки от Supabase
     if (error) {
       console.error('Ошибка Supabase:', error);
-      throw error;
+      throw new Error(error.message || 'Неизвестная ошибка Supabase');
     }
 
-    console.log('Ответ сервера:', data); // Логируем ответ
-    alert('Проверьте почту для подтверждения!');
+    // 3. Успешная регистрация
+    console.log('Успешный ответ сервера:', data);
+    alert('Регистрация завершена! Проверьте почту для подтверждения.');
     
+    // Переключаем на форму входа
+    registerForm.style.display = 'none';
+    loginForm.style.display = 'block';
+
   } catch (err) {
-    console.error('Полная ошибка:', err);
-    alert('Ошибка регистрации: ' + (err.message || 'Нет ответа от сервера'));
+    // 4. Обработка всех других ошибок (сеть, CORS и т.д.)
+    console.error('Полная ошибка регистрации:', err);
+    alert(`Ошибка регистрации: ${err.message || 'Сервер не отвечает'}`);
   }
 });
 
