@@ -1,11 +1,20 @@
-console.log('Supabase loaded:', typeof window.supabase);
-// Инициализация Supabase
-const SUPABASE_URL = 'https://pqmztgzagxrygxzflpu.supabase.co';
-const SUPABASE_KEY = 'eynhb6c1d0J7U2I1M1i5nR5cC16Ikpx0C19.eyOpc3N10iJzaX8hYmFzzSIsIn11Zi16In8nbnpqdG56YMd4cn1neHpmax81I1idcm9sZS16InFuD';
+// Проверка загрузки Supabase
+if (!window.supabase) {
+  console.error('Supabase не загружен! Проверьте подключение скрипта');
+  throw new Error('Добавьте <script src="https://unpkg.com/@supabase/supabase-js@^2"></script> в HTML');
+}
+// Инициализация
+const SUPABASE_URL = 'https://my-website-cjed.onrender.com'; // Замените на ваш
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnbnpqdG56YWd4cnlneHpmaXB1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzU2NzI1MSwiZXhwIjoyMDY5MTQzMjUxfQ.K5JtaMMgPEaYMKPZhjeSP5GPhm8bZEccBq2gHKLTn-k';
 
-// Создаем клиент Supabase
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-console.log("Supabase инициализирован", supabase);
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true
+  }
+});
+
+console.log('Supabase подключен:', supabase);
 
 // Глобальные переменные
 let currentUser = null;
