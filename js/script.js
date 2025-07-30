@@ -1,56 +1,47 @@
-// Проверка загрузки Supabase
-if (typeof supabase === 'undefined') {
-  const errorMsg = 'Supabase не загружен! Добавьте: <script src="https://unpkg.com/@supabase/supabase-js@^2"></script>';
-  console.error(errorMsg);
-  document.body.innerHTML = `<div style="color:red;padding:20px;">${errorMsg}</div>`;
-  throw new Error(errorMsg);
-}
-
-// Инициализация Supabase
-const SUPABASE_URL = 'https://my-website-cjed.onrender.com';
-const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
-
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true
-  }
-});
-
 // Глобальные переменные
+let supabase;
 let currentUser = null;
 let cartId = null;
 
-// Делаем функции глобальными
-window.addToCart = addToCart;
-window.updateQuantity = updateQuantity;
-window.removeFromCart = removeFromCart;
+// Инициализация Supabase
+function initSupabase() {
+  try {
+    if (typeof supabaseClient === 'undefined') {
+      throw new Error('Supabase client not loaded');
+    }
 
-// Основная функция инициализации
-async function initApp() {
-  // Проверяем авторизацию
-  const isAuthenticated = await checkAuth();
-  if (!isAuthenticated) return;
-
-  // Инициализируем корзину
-  await initCart();
-  
-  // Настраиваем интерфейс
-  updateAuthUI();
-  setupEventListeners();
+    const SUPABASE_URL = 'https://my-website-cjed.onrender.com';
+    const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
+    
+    supabase = supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true
+      }
+    });
+    
+    return supabase;
+  } catch (error) {
+    console.error('Ошибка инициализации Supabase:', error);
+    document.body.innerHTML = `
+      <div style="color:red; padding:20px;">
+        Ошибка загрузки Supabase. Пожалуйста, обновите страницу.
+      </div>
+    `;
+    throw error;
+  }
 }
 
 // Проверка авторизации
 async function checkAuth() {
   try {
+    if (!supabase) {
+      throw new Error('Supabase not initialized');
+    }
+
     const { data: { user }, error } = await supabase.auth.getUser();
     
-    if (error) {
-      console.error('Ошибка проверки авторизации:', error);
-      redirectToLogin();
-      return false;
-    }
-    
+    if (error) throw error;
     if (!user) {
       redirectToLogin();
       return false;
@@ -58,7 +49,6 @@ async function checkAuth() {
     
     currentUser = user;
     return true;
-    
   } catch (error) {
     console.error('Ошибка проверки авторизации:', error);
     redirectToLogin();
@@ -66,67 +56,16 @@ async function checkAuth() {
   }
 }
 
+// Перенаправление на страницу входа
 function redirectToLogin() {
-  // Проверяем, не находимся ли уже на странице входа
   if (!window.location.pathname.endsWith('index.html')) {
     window.location.href = 'index.html';
   }
 }
 
-// Настройка обработчиков событий
-function setupEventListeners() {
-  const loginBtn = document.getElementById('loginBtn');
-  const cartBtn = document.getElementById('cartBtn');
-  const cartModal = document.getElementById('cartModal');
-  const closeCart = document.querySelector('.close-cart');
-  const checkoutBtn = document.getElementById('checkoutBtn');
-
-  if (loginBtn) {
-    loginBtn.addEventListener('click', () => {
-      window.location.href = 'index.html';
-    });
-  }
-
-  if (cartBtn) {
-    cartBtn.addEventListener('click', async () => {
-      cartModal.classList.add('show');
-      await updateCartDisplay();
-    });
-  }
-
-  if (closeCart) {
-    closeCart.addEventListener('click', () => {
-      cartModal.classList.remove('show');
-    });
-  }
-
-  if (cartModal) {
-    cartModal.addEventListener('click', (e) => {
-      if (e.target === cartModal) {
-        cartModal.classList.remove('show');
-      }
-    });
-  }
-
-  if (checkoutBtn) {
-    checkoutBtn.addEventListener('click', handleCheckout);
-  }
-}
-
-// Обновление UI после авторизации
-function updateAuthUI() {
-  const loginBtn = document.getElementById('loginBtn');
-  const cartBtn = document.getElementById('cartBtn');
-  
-  if (currentUser && loginBtn && cartBtn) {
-    loginBtn.textContent = 'Мой профиль';
-    cartBtn.style.display = 'flex';
-  }
-}
-
 // Инициализация корзины
 async function initCart() {
-  if (!currentUser) return;
+  if (!currentUser || !supabase) return;
 
   try {
     const { data, error } = await supabase
@@ -152,20 +91,73 @@ async function initCart() {
     }
   } catch (error) {
     console.error('Ошибка инициализации корзины:', error);
+    throw error;
+  }
+}
+
+// Обновление интерфейса
+function updateAuthUI() {
+  try {
+    const loginBtn = document.getElementById('loginBtn');
+    const cartBtn = document.getElementById('cartBtn');
+    
+    if (currentUser) {
+      if (loginBtn) loginBtn.textContent = 'Мой профиль';
+      if (cartBtn) cartBtn.style.display = 'flex';
+    }
+  } catch (error) {
+    console.error('Ошибка обновления интерфейса:', error);
+  }
+}
+
+// Настройка обработчиков событий
+function setupEventListeners() {
+  try {
+    // Кнопка корзины
+    document.getElementById('cartBtn')?.addEventListener('click', async () => {
+      try {
+        document.getElementById('cartModal')?.classList.add('show');
+        await updateCartDisplay();
+      } catch (error) {
+        console.error('Ошибка открытия корзины:', error);
+      }
+    });
+
+    // Закрытие корзины
+    document.querySelector('.close-cart')?.addEventListener('click', () => {
+      document.getElementById('cartModal')?.classList.remove('show');
+    });
+
+    // Клик по фону модального окна
+    document.getElementById('cartModal')?.addEventListener('click', (e) => {
+      if (e.target === document.getElementById('cartModal')) {
+        document.getElementById('cartModal')?.classList.remove('show');
+      }
+    });
+
+    // Кнопка оформления заказа
+    document.getElementById('checkoutBtn')?.addEventListener('click', handleCheckout);
+  } catch (error) {
+    console.error('Ошибка настройки обработчиков:', error);
   }
 }
 
 // Добавление товара в корзину
-async function addToCart(productName, productPrice, button) {
-  if (!currentUser) {
-    alert('Для добавления товаров в корзину войдите в систему');
-    return;
-  }
-
-  if (!cartId) await initCart();
-  
+window.addToCart = async function(productName, productPrice, button) {
   try {
-    // 1. Находим ID продукта по имени
+    if (!currentUser) {
+      alert('Для добавления товаров в корзину войдите в систему');
+      redirectToLogin();
+      return;
+    }
+
+    if (!supabase) {
+      throw new Error('Supabase not initialized');
+    }
+
+    if (!cartId) await initCart();
+    
+    // Находим ID продукта по имени
     const { data: product, error: productError } = await supabase
       .from('products')
       .select('id')
@@ -174,7 +166,7 @@ async function addToCart(productName, productPrice, button) {
 
     if (productError || !product) throw productError || new Error('Товар не найден');
 
-    // 2. Проверяем, есть ли уже такой товар в корзине
+    // Проверяем, есть ли уже такой товар в корзине
     const { data: existingItem, error: itemError } = await supabase
       .from('cart_items')
       .select('id, quantity')
@@ -184,7 +176,7 @@ async function addToCart(productName, productPrice, button) {
 
     if (itemError) throw itemError;
 
-    // 3. Обновляем или добавляем товар
+    // Обновляем или добавляем товар
     if (existingItem) {
       const { error: updateError } = await supabase
         .from('cart_items')
@@ -205,7 +197,7 @@ async function addToCart(productName, productPrice, button) {
       if (insertError) throw insertError;
     }
 
-    // 4. Обновляем UI
+    // Обновляем UI
     if (button) {
       button.textContent = 'Добавлено!';
       setTimeout(() => {
@@ -218,11 +210,11 @@ async function addToCart(productName, productPrice, button) {
     console.error('Ошибка при добавлении в корзину:', error);
     alert('Ошибка при добавлении в корзину: ' + error.message);
   }
-}
+};
 
 // Обновление отображения корзины
 async function updateCartDisplay() {
-  if (!cartId) return;
+  if (!cartId || !supabase) return;
   
   try {
     const { data: items, error } = await supabase
@@ -280,13 +272,17 @@ async function updateCartDisplay() {
 }
 
 // Обновление количества товара
-async function updateQuantity(itemId, newQuantity) {
-  if (newQuantity < 1) {
-    await removeFromCart(itemId);
-    return;
-  }
-  
+window.updateQuantity = async function(itemId, newQuantity) {
   try {
+    if (!supabase) {
+      throw new Error('Supabase not initialized');
+    }
+
+    if (newQuantity < 1) {
+      await removeFromCart(itemId);
+      return;
+    }
+    
     const { error } = await supabase
       .from('cart_items')
       .update({ quantity: newQuantity })
@@ -299,11 +295,15 @@ async function updateQuantity(itemId, newQuantity) {
     console.error('Ошибка при обновлении количества:', error);
     alert('Ошибка при обновлении количества: ' + error.message);
   }
-}
+};
 
 // Удаление товара из корзины
-async function removeFromCart(itemId) {
+window.removeFromCart = async function(itemId) {
   try {
+    if (!supabase) {
+      throw new Error('Supabase not initialized');
+    }
+
     const { error } = await supabase
       .from('cart_items')
       .delete()
@@ -316,24 +316,24 @@ async function removeFromCart(itemId) {
     console.error('Ошибка при удалении товара:', error);
     alert('Ошибка при удалении товара: ' + error.message);
   }
-}
+};
 
 // Оформление заказа
 async function handleCheckout() {
-  if (!currentUser) {
-    alert('Для оформления заказа войдите в систему');
-    window.location.href = 'index.html';
-    return;
-  }
-
-  const address = prompt('Введите адрес доставки:');
-  if (!address) return;
-  
-  const phone = prompt('Введите ваш телефон:');
-  if (!phone) return;
-  
   try {
-    // 1. Получаем товары из корзины
+    if (!currentUser || !supabase) {
+      alert('Для оформления заказа войдите в систему');
+      redirectToLogin();
+      return;
+    }
+
+    const address = prompt('Введите адрес доставки:');
+    if (!address) return;
+    
+    const phone = prompt('Введите ваш телефон:');
+    if (!phone) return;
+    
+    // Получаем товары из корзины
     const { data: cartItems, error: itemsError } = await supabase
       .from('cart_items')
       .select('product_id, quantity, price, products(name)')
@@ -346,10 +346,10 @@ async function handleCheckout() {
       return;
     }
 
-    // 2. Рассчитываем общую сумму
+    // Рассчитываем общую сумму
     const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    // 3. Создаем заказ
+    // Создаем заказ
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -364,7 +364,7 @@ async function handleCheckout() {
     
     if (orderError) throw orderError;
 
-    // 4. Добавляем товары в заказ
+    // Добавляем товары в заказ
     const orderItems = cartItems.map(item => ({
       order_id: order.id,
       product_id: item.product_id,
@@ -378,7 +378,7 @@ async function handleCheckout() {
     
     if (itemsInsertError) throw itemsInsertError;
 
-    // 5. Очищаем корзину
+    // Очищаем корзину
     await supabase
       .from('cart_items')
       .delete()
@@ -389,16 +389,37 @@ async function handleCheckout() {
       .delete()
       .eq('id', cartId);
     
-    // 6. Обновляем состояние
+    // Обновляем состояние
     cartId = null;
     await initCart();
     await updateCartDisplay();
-    document.getElementById('cartModal').classList.remove('show');
+    document.getElementById('cartModal')?.classList.remove('show');
 
     alert(`Заказ #${order.id} успешно оформлен! Сумма: ${total}₽`);
   } catch (err) {
     console.error('Ошибка при оформлении заказа:', err);
     alert('Ошибка при оформлении заказа: ' + err.message);
+  }
+}
+
+// Основная функция инициализации приложения
+async function initApp() {
+  try {
+    // Инициализируем Supabase
+    initSupabase();
+    
+    // Проверяем авторизацию
+    const isAuthenticated = await checkAuth();
+    
+    // Если пользователь авторизован, продолжаем инициализацию
+    if (isAuthenticated) {
+      await initCart();
+      setupEventListeners();
+      updateAuthUI();
+    }
+  } catch (error) {
+    console.error('Ошибка инициализации приложения:', error);
+    redirectToLogin();
   }
 }
 
