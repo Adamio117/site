@@ -6,60 +6,133 @@ let cartId = null;
 // Инициализация Supabase
 function initSupabase() {
   try {
-    if (typeof supabaseClient === 'undefined') {
-      throw new Error('Supabase client not loaded');
+    // Проверяем, что Supabase SDK загружен
+    if (typeof supabase === 'undefined' && typeof supabaseClient === 'undefined') {
+      throw new Error('Supabase SDK not loaded');
     }
 
     const SUPABASE_URL = 'https://my-website-cjed.onrender.com';
     const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
     
-    supabase = supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true
-      }
-    });
+    // Используем глобальный supabaseClient если доступен
+    supabase = typeof supabaseClient !== 'undefined' 
+      ? supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true
+          }
+        })
+      : supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true
+          }
+        });
     
     return supabase;
   } catch (error) {
-    console.error('Ошибка инициализации Supabase:', error);
-    document.body.innerHTML = `
-      <div style="color:red; padding:20px;">
-        Ошибка загрузки Supabase. Пожалуйста, обновите страницу.
-      </div>
-    `;
+    console.error('Supabase initialization error:', error);
+    showError('Ошибка загрузки системы. Пожалуйста, обновите страницу.');
     throw error;
   }
+}
+
+// Показ ошибки
+function showError(message) {
+  const errorDiv = document.createElement('div');
+  errorDiv.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ffebee;
+    color: #c62828;
+    padding: 15px 20px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 10000;
+  `;
+  errorDiv.textContent = message;
+  document.body.appendChild(errorDiv);
+  setTimeout(() => errorDiv.remove(), 5000);
 }
 
 // Проверка авторизации
 async function checkAuth() {
   try {
     if (!supabase) {
-      throw new Error('Supabase not initialized');
+      await initSupabase();
     }
 
     const { data: { user }, error } = await supabase.auth.getUser();
     
     if (error) throw error;
-    if (!user) {
-      redirectToLogin();
-      return false;
-    }
     
     currentUser = user;
-    return true;
+    return !!user;
   } catch (error) {
-    console.error('Ошибка проверки авторизации:', error);
-    redirectToLogin();
+    console.error('Auth check error:', error);
     return false;
   }
 }
 
-// Перенаправление на страницу входа
+// Перенаправление
 function redirectToLogin() {
   if (!window.location.pathname.endsWith('index.html')) {
     window.location.href = 'index.html';
+  }
+}
+
+// Инициализация приложения
+async function initApp() {
+  try {
+    // Инициализируем Supabase
+    await initSupabase();
+    
+    // Проверяем авторизацию
+    const isAuthenticated = await checkAuth();
+    
+    // Определяем текущую страницу
+    const isLoginPage = window.location.pathname.endsWith('index.html');
+    
+    if (isAuthenticated && isLoginPage) {
+      // Если авторизован и на странице входа - перенаправляем на main
+      window.location.href = 'main.html';
+      return;
+    }
+    
+    if (!isAuthenticated && !isLoginPage) {
+      // Если не авторизован и не на странице входа - перенаправляем на index
+      redirectToLogin();
+      return;
+    }
+    
+    // Если логика перенаправления не сработала, продолжаем инициализацию
+    if (isAuthenticated) {
+      await initCart();
+      setupEventListeners();
+      updateAuthUI();
+    }
+    
+    // Для страницы входа показываем модальное окно
+    if (isLoginPage) {
+      showAuthModal();
+    }
+  } catch (error) {
+    console.error('App initialization error:', error);
+    if (!window.location.pathname.endsWith('index.html')) {
+      redirectToLogin();
+    }
+  }
+}
+
+// Показ модального окна авторизации (для index.html)
+function showAuthModal() {
+  const authModal = document.getElementById('authModal');
+  if (authModal) {
+    authModal.classList.add('show');
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('registerForm').style.display = 'none';
   }
 }
 
@@ -425,3 +498,7 @@ async function initApp() {
 
 // Запускаем приложение при загрузке страницы
 document.addEventListener('DOMContentLoaded', initApp);
+// Глобальные функции
+window.addToCart = addToCart;
+window.updateQuantity = updateQuantity;
+window.removeFromCart = removeFromCart;
