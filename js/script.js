@@ -3,43 +3,68 @@ let supabase;
 let currentUser = null;
 let cartId = null;
 
-// Инициализация Supabase
-function initSupabase() {
-  try {
-    // Проверяем, что Supabase SDK загружен
-    if (typeof supabase === 'undefined' && typeof supabaseClient === 'undefined') {
-      throw new Error('Supabase SDK not loaded');
-    }
+// Проверка загрузки Supabase SDK
+function isSupabaseLoaded() {
+  return typeof supabase !== 'undefined' || 
+         (typeof window !== 'undefined' && window.supabaseClient);
+}
 
-    const SUPABASE_URL = 'https://my-website-cjed.onrender.com';
-    const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
-    
-    // Используем глобальный supabaseClient если доступен
-    supabase = typeof supabaseClient !== 'undefined' 
-      ? supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY, {
-          auth: {
-            persistSession: true,
-            autoRefreshToken: true
-          }
-        })
-      : supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-          auth: {
-            persistSession: true,
-            autoRefreshToken: true
-          }
+// Инициализация Supabase с повторными попытками
+async function initSupabase() {
+  const MAX_RETRIES = 3;
+  let attempts = 0;
+  
+  while (attempts < MAX_RETRIES) {
+    try {
+      if (!isSupabaseLoaded()) {
+        // Если Supabase не загружен, создаем элемент script
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@supabase/supabase-js@^2';
+        script.id = 'supabase-sdk';
+        document.head.appendChild(script);
+        
+        // Ждем загрузки SDK
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+          setTimeout(() => reject(new Error('Supabase loading timeout')), 5000);
         });
-    
-    return supabase;
-  } catch (error) {
-    console.error('Supabase initialization error:', error);
-    showError('Ошибка загрузки системы. Пожалуйста, обновите страницу.');
-    throw error;
+      }
+
+      const SUPABASE_URL = 'https://my-website-cjed.onrender.com';
+      const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
+      
+      // Используем доступный клиент
+      supabase = window.supabaseClient 
+        ? window.supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY, {
+            auth: { persistSession: true, autoRefreshToken: true }
+          })
+        : supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+            auth: { persistSession: true, autoRefreshToken: true }
+          });
+
+      console.log('Supabase успешно инициализирован');
+      return supabase;
+      
+    } catch (error) {
+      attempts++;
+      console.error(`Попытка ${attempts} не удалась:`, error);
+      if (attempts >= MAX_RETRIES) {
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+    }
   }
 }
 
-// Показ ошибки
-function showError(message) {
+// Показ сообщения об ошибке
+function showError(message, isFatal = false) {
+  // Удаляем старые сообщения об ошибках
+  const oldError = document.getElementById('supabase-error');
+  if (oldError) oldError.remove();
+
   const errorDiv = document.createElement('div');
+  errorDiv.id = 'supabase-error';
   errorDiv.style.cssText = `
     position: fixed;
     top: 20px;
@@ -47,31 +72,87 @@ function showError(message) {
     transform: translateX(-50%);
     background: #ffebee;
     color: #c62828;
-    padding: 15px 20px;
+    padding: 15px 25px;
     border-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    z-index: 10000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    z-index: 9999;
+    max-width: 80%;
+    text-align: center;
   `;
-  errorDiv.textContent = message;
-  document.body.appendChild(errorDiv);
-  setTimeout(() => errorDiv.remove(), 5000);
+  
+  errorDiv.innerHTML = `
+    <div style="margin-bottom: 10px; font-weight: bold;">${message}</div>
+    <button onclick="location.reload()" style="
+      background: #c62828;
+      color: white;
+      border: none;
+      padding: 5px 15px;
+      border-radius: 3px;
+      cursor: pointer;
+    ">Обновить страницу</button>
+    ${isFatal ? '' : `<div style="margin-top: 10px; font-size: 0.9em;">Система продолжит работу, но некоторые функции могут быть недоступны</div>`}
+  `;
+  
+  document.body.prepend(errorDiv);
+}
+
+// Основная функция инициализации
+async function initApp() {
+  try {
+    // Пытаемся инициализировать Supabase
+    try {
+      await initSupabase();
+    } catch (error) {
+      console.error('Не удалось инициализировать Supabase:', error);
+      showError('Ошибка загрузки системы. Попробуйте обновить страницу.', true);
+      return;
+    }
+
+    // Проверяем авторизацию
+    const isAuthenticated = await checkAuth();
+    const isLoginPage = window.location.pathname.endsWith('index.html');
+
+    // Логика перенаправлений
+    if (isAuthenticated && isLoginPage) {
+      window.location.href = 'main.html';
+      return;
+    }
+
+    if (!isAuthenticated && !isLoginPage) {
+      redirectToLogin();
+      return;
+    }
+
+    // Инициализация для авторизованных пользователей
+    if (isAuthenticated) {
+      await initCart();
+      setupEventListeners();
+      updateAuthUI();
+    }
+
+    // Для страницы входа показываем модальное окно
+    if (isLoginPage) {
+      showAuthModal();
+    }
+
+  } catch (error) {
+    console.error('Критическая ошибка инициализации:', error);
+    showError('Произошла непредвиденная ошибка. Пожалуйста, обновите страницу.', true);
+  }
 }
 
 // Проверка авторизации
 async function checkAuth() {
+  if (!supabase) return false;
+  
   try {
-    if (!supabase) {
-      await initSupabase();
-    }
-
     const { data: { user }, error } = await supabase.auth.getUser();
-    
     if (error) throw error;
     
     currentUser = user;
     return !!user;
   } catch (error) {
-    console.error('Auth check error:', error);
+    console.error('Ошибка проверки авторизации:', error);
     return false;
   }
 }
@@ -496,8 +577,12 @@ async function initApp() {
   }
 }
 
-// Запускаем приложение при загрузке страницы
-document.addEventListener('DOMContentLoaded', initApp);
+// Запуск приложения
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  setTimeout(initApp, 0);
+} else {
+  document.addEventListener('DOMContentLoaded', initApp);
+}
 // Глобальные функции
 window.addToCart = addToCart;
 window.updateQuantity = updateQuantity;
