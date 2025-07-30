@@ -7,74 +7,109 @@
     currentUser: null,
     cartId: null,
     isInitialized: false,
+    retryCount: 0,
+    maxRetries: 3,
     
-    // Инициализация приложения
+    // Основная функция инициализации
     init: async function() {
-      if (this.isInitialized) return;
-      console.log('Инициализация приложения...');
-      
       try {
-        await this.initSupabase();
-        await this.checkAuth();
+        if (this.isInitialized) return;
+        console.log('[Init] Начало инициализации приложения');
+
+        // 1. Инициализация Supabase
+        await this.retryOperation(this.initSupabase.bind(this), 'Supabase');
         
-        // Для страницы входа
-        if (this.isLoginPage()) {
-          if (this.currentUser) {
-            console.log('Пользователь авторизован, перенаправляем на main.html');
-            this.redirectTo('main.html');
-          } else {
-            console.log('Показываем модальное окно авторизации');
-            this.showAuthModal();
-          }
-          return;
-        }
+        // 2. Проверка аутентификации
+        await this.retryOperation(this.checkAuth.bind(this), 'Auth Check');
         
-        // Для главной страницы
-        if (!this.isLoginPage() && !this.currentUser) {
-          console.log('Пользователь не авторизован, перенаправляем на index.html');
-          this.redirectTo('index.html');
-          return;
-        }
+        // 3. Маршрутизация
+        await this.handleRouting();
         
-        // Инициализация для авторизованных пользователей
+        // 4. Инициализация для авторизованных пользователей
         if (this.currentUser) {
-          console.log('Инициализация для авторизованного пользователя');
-          await this.initCart();
+          await this.retryOperation(this.initCart.bind(this), 'Cart Init');
           this.setupEventListeners();
           this.updateAuthUI();
         }
-        
-      } catch (error) {
-        console.error('Ошибка инициализации:', error);
-        this.showError('Произошла ошибка при загрузке приложения', false);
-      } finally {
+
         this.isInitialized = true;
+        console.log('[Init] Приложение успешно инициализировано');
+      } catch (error) {
+        console.error('[Init] Критическая ошибка инициализации:', error);
+        this.showError('Системная ошибка. Пожалуйста, обновите страницу.', true);
+      }
+    },
+    // Повторная попытка выполнения операции
+    retryOperation: async function(operation, operationName) {
+      try {
+        let lastError;
+        for (let i = 0; i < this.maxRetries; i++) {
+          try {
+            console.log(`[Retry] Попытка ${i+1} для ${operationName}`);
+            return await operation();
+          } catch (error) {
+            lastError = error;
+            console.warn(`[Retry] Ошибка в ${operationName}:`, error);
+            if (i < this.maxRetries - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+            }
+          }
+        }
+        throw lastError;
+      } catch (error) {
+        console.error(`[Retry] Все попытки для ${operationName} исчерпаны`);
+        throw error;
+      }
+    },
+
+
+    // Маршрутизация
+    handleRouting: async function() {
+      console.log('[Routing] Проверка маршрутизации');
+      const isLoginPage = this.isLoginPage();
+      
+      if (isLoginPage && this.currentUser) {
+        console.log('[Routing] Перенаправление авторизованного пользователя на main.html');
+        this.redirectTo('main.html');
+        return;
+      }
+      
+      if (!isLoginPage && !this.currentUser) {
+        console.log('[Routing] Перенаправление неавторизованного пользователя на index.html');
+        this.redirectTo('index.html');
+        return;
+      }
+      
+      if (isLoginPage && !this.currentUser) {
+        console.log('[Routing] Показ модального окна авторизации');
+        this.showAuthModal();
       }
     },
 
     // Проверка текущей страницы
     isLoginPage: function() {
-      const path = window.location.pathname;
+      const path = window.location.pathname.toLowerCase();
       return path.endsWith('index.html') || path === '/' || path === '/index.html';
     },
     
     // Перенаправление
     redirectTo: function(page) {
-      if (this.isLoginPage() && page === 'index.html') return;
-      if (window.location.pathname.endsWith(page)) return;
-      
-      console.log(`Перенаправление на ${page}`);
+      if (window.location.pathname.endsWith(page)) {
+        console.warn(`[Redirect] Уже на странице ${page}, перенаправление отменено`);
+        return;
+      }
+      console.log(`[Redirect] Перенаправление на ${page}`);
       window.location.href = page;
     },
 
     // Инициализация Supabase
     initSupabase: async function() {
       try {
-        console.log('Инициализация Supabase...');
+        console.log('[Supabase] Начало инициализации');
         
         // Проверяем, загружен ли Supabase
         if (typeof supabase === 'undefined') {
-          console.log('Supabase не загружен, загружаем SDK...');
+          console.log('[Supabase] SDK не загружен, начинаем загрузку');
           await new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/@supabase/supabase-js@^2';
@@ -96,33 +131,78 @@
           }
         });
         
-        console.log('Supabase успешно инициализирован');
+        // Тестовый запрос для проверки подключения
+        const { error } = await this.supabase.auth.getUser();
+        if (error) throw error;
+        
+        console.log('[Supabase] Успешно инициализирован');
       } catch (error) {
-        console.error('Ошибка инициализации Supabase:', error);
-        throw error;
+        console.error('[Supabase] Ошибка инициализации:', error);
+        throw new Error('Ошибка подключения к Supabase');
       }
     },
     // Проверка авторизации
     checkAuth: async function() {
       try {
-        console.log('Проверка авторизации...');
+        console.log('[Auth] Проверка авторизации');
         if (!this.supabase) throw new Error('Supabase не инициализирован');
         
         const { data: { user }, error } = await this.supabase.auth.getUser();
         if (error) throw error;
         
         this.currentUser = user;
-        console.log('Статус авторизации:', user ? 'авторизован' : 'не авторизован');
+        console.log(`[Auth] Пользователь ${user ? 'авторизован' : 'не авторизован'}`);
         return !!user;
       } catch (error) {
-        console.error('Ошибка проверки авторизации:', error);
+        console.error('[Auth] Ошибка проверки авторизации:', error);
         this.currentUser = null;
-        return false;
+        throw new Error('Ошибка проверки авторизации');
       }
     },
-    // Показ сообщения об ошибке
+
+    
+    // Инициализация корзины
+    initCart: async function() {
+      try {
+        console.log('[Cart] Инициализация корзины');
+        if (!this.currentUser || !this.supabase) {
+          throw new Error('Нет данных пользователя или Supabase');
+        }
+
+        // 1. Поиск существующей корзины
+        const { data, error } = await this.supabase
+          .from('cart_sessions')
+          .select('id')
+          .eq('user_id', this.currentUser.id)
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle();
+
+        if (error) throw error;
+
+        this.cartId = data?.id || null;
+        
+        // 2. Создание новой корзины при необходимости
+        if (!this.cartId) {
+          console.log('[Cart] Создание новой корзины');
+          const { data: newCart, error: cartError } = await this.supabase
+            .from('cart_sessions')
+            .insert({ user_id: this.currentUser.id })
+            .select()
+            .single();
+          
+          if (cartError) throw cartError;
+          this.cartId = newCart.id;
+        }
+        
+        console.log(`[Cart] Корзина инициализирована, ID: ${this.cartId}`);
+      } catch (error) {
+        console.error('[Cart] Ошибка инициализации корзины:', error);
+        throw new Error('Ошибка инициализации корзины');
+      }
+    },
+        // Показ сообщения об ошибке
     showError: function(message, isFatal = false) {
-      console.error('Показ ошибки:', message);
+      console.error(`[Error] ${message}`);
       const oldError = document.getElementById('app-error');
       if (oldError) oldError.remove();
 
@@ -133,53 +213,16 @@
         <div class="error-content">
           <strong>${message}</strong>
           <button class="reload-btn">Обновить страницу</button>
-          ${isFatal ? '' : '<div class="error-note">Система продолжит работу, но некоторые функции могут быть недоступны</div>'}
+          ${isFatal ? '' : '<div class="error-note">Некоторые функции могут быть недоступны</div>'}
         </div>
       `;
       
-      errorDiv.querySelector('.reload-btn').addEventListener('click', () => location.reload());
+      errorDiv.querySelector('.reload-btn').addEventListener('click', () => {
+        location.reload();
+      });
+      
       document.body.prepend(errorDiv);
     },
-    
-    // Инициализация корзины
-    initCart: async function() {
-      console.log('Инициализация корзины...');
-      if (!this.currentUser || !this.supabase) {
-        console.log('Нет пользователя или Supabase - пропускаем инициализацию корзины');
-        return;
-      }
-
-      try {
-        const { data, error } = await this.supabase
-          .from('cart_sessions')
-          .select('id')
-          .eq('user_id', this.currentUser.id)
-          .gt('expires_at', new Date().toISOString())
-          .single();
-
-        if (error) throw error;
-
-        this.cartId = data?.id || null;
-        console.log('ID корзины:', this.cartId);
-        
-        if (!this.cartId) {
-          console.log('Создание новой корзины...');
-          const { data: newCart, error: cartError } = await this.supabase
-            .from('cart_sessions')
-            .insert({ user_id: this.currentUser.id })
-            .select()
-            .single();
-          
-          if (cartError) throw cartError;
-          this.cartId = newCart.id;
-          console.log('Новая корзина создана, ID:', this.cartId);
-        }
-      } catch (error) {
-        console.error('Ошибка инициализации корзины:', error);
-        throw error;
-      }
-    },
-    
     // Выход из системы
     signOut: async function() {
       try {
@@ -566,16 +609,31 @@
     }
   };
 
-  // Делаем методы доступными глобально
-    window.addToCart = function(productName, productPrice, button) {
+  // Глобальные методы
+  window.addToCart = function(productName, productPrice, button) {
     app.addToCart(productName, productPrice, button);
-    };
-  // Запуск приложения
-  if (document.readyState === 'complete') {
-    app.init();
-  } else {
-    document.addEventListener('DOMContentLoaded', function() {
+  };
+  // Запуск приложения с обработкой ошибок
+  try {
+    if (document.readyState === 'complete') {
       app.init();
-    });
+    } else {
+      document.addEventListener('DOMContentLoaded', function() {
+        app.init();
+      });
+    }
+  } catch (error) {
+    console.error('Фатальная ошибка при запуске:', error);
+    const errorDiv = document.createElement('div');
+    errorDiv.innerHTML = `
+      <div style="padding: 20px; background: #ffebee; color: #c62828; text-align: center;">
+        <h3>Критическая ошибка приложения</h3>
+        <p>Пожалуйста, обновите страницу или попробуйте позже</p>
+        <button onclick="location.reload()" style="
+          background: #c62828; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;
+        ">Обновить страницу</button>
+      </div>
+    `;
+    document.body.prepend(errorDiv);
   }
 })();
