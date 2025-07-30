@@ -11,38 +11,34 @@
     maxRetries: 3,
     
     // Основная функция инициализации
-    init: async function() {
-      try {
-        if (this.isInitialized) return;
-        console.log('[Init] Начало инициализации приложения');
+init: async function() {
+  try {
+    if (this.isInitialized) return;
+    console.log('[Init] Начало инициализации приложения');
 
-        // 1. Инициализация Supabase
-        await this.retryOperation(this.initSupabase.bind(this), 'Supabase');
-        
-        // 2. Проверка аутентификации
-        if (this.supabase) {
-          await this.retryOperation(this.checkAuth.bind(this), 'Auth Check');
-        }
-        
-        // 3. Маршрутизация
-        await this.handleRouting();
-        
-        // 4. Инициализация UI
-        this.setupEventListeners();
-        this.updateAuthUI();
-        
-        // 5. Инициализация корзины для авторизованных пользователей
-        if (this.currentUser && this.supabase) {
-          await this.initCart();
-        }
-        
-        this.isInitialized = true;
-        console.log('[Init] Приложение успешно инициализировано');
-      } catch (error) {
-        console.error('[Init] Критическая ошибка инициализации:', error);
-        this.showError('Системная ошибка. Пожалуйста, обновите страницу.', true);
-      }
-    },
+    // 1. Инициализация Supabase
+    await this.retryOperation(this.initSupabase.bind(this), 'Supabase');
+    
+    // 2. Проверка аутентификации (не критично для работы)
+    try {
+      await this.checkAuth();
+    } catch (authError) {
+      console.warn('[Init] Ошибка проверки авторизации (не критично):', authError);
+    }
+    
+    // 3. Маршрутизация
+    await this.handleRouting();
+    
+    // 4. Инициализация UI
+    this.setupEventListeners();
+    this.updateAuthUI();
+    
+    this.isInitialized = true;
+  } catch (error) {
+    console.error('[Init] Критическая ошибка инициализации:', error);
+    this.showError('Системная ошибка. Пожалуйста, обновите страницу.', true);
+  }
+},
 
     // Повторная попытка выполнения операции
     retryOperation: async function(operation, operationName) {
@@ -129,7 +125,7 @@
           auth: {
             persistSession: true,
             autoRefreshToken: true,
-            detectSessionInUrl: true,
+            detectSessionInUrl: false,
             storage: window.localStorage
           }
         });
@@ -152,25 +148,38 @@
     },
 
     // Проверка авторизации
-    checkAuth: async function() {
-      if (!this.supabase) {
-        console.log('[Auth] Supabase не доступен, пропускаем проверку');
-        return false;
-      }
-      try {
-        console.log('[Auth] Проверка авторизации');
-        const { data: { user }, error } = await this.supabase.auth.getUser();
-        if (error) throw error;
-        
-        this.currentUser = user;
-        console.log(`[Auth] Пользователь ${user ? 'авторизован' : 'не авторизован'}`);
-        return !!user;
-      } catch (error) {
-        console.error('[Auth] Ошибка проверки авторизации:', error);
-        this.currentUser = null;
-        throw new Error('Ошибка проверки авторизации');
-      }
-    },
+checkAuth: async function() {
+  if (!this.supabase) {
+    console.log('[Auth] Supabase не доступен, пропускаем проверку');
+    return false;
+  }
+  
+  try {
+    console.log('[Auth] Проверка авторизации');
+    
+    // Сначала получаем сессию
+    const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    
+    if (!session) {
+      console.log('[Auth] Сессия не найдена, пользователь не авторизован');
+      this.currentUser = null;
+      return false;
+    }
+    
+    // Затем получаем пользователя
+    const { data: { user }, error: userError } = await this.supabase.auth.getUser();
+    if (userError) throw userError;
+    
+    this.currentUser = user;
+    console.log(`[Auth] Пользователь ${user ? 'авторизован' : 'не авторизован'}`);
+    return !!user;
+  } catch (error) {
+    console.error('[Auth] Ошибка проверки авторизации:', error);
+    this.currentUser = null;
+    return false; // Возвращаем false вместо выброса ошибки
+  }
+},
     
     // Инициализация корзины
     initCart: async function() {

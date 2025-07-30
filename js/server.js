@@ -15,11 +15,12 @@ app.use(express.json());
 
 // Статические файлы
 app.use(express.static(path.join(__dirname, 'public'), {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.js')) {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript');
     }
-  }
+  },
+  fallthrough: true // Добавьте эту строку
 }));
 
 // Инициализация Supabase
