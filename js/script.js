@@ -6,13 +6,14 @@
     cartId: null,
     isInitialized: false,
     
-    async init() {
+    // Инициализация приложения
+    init: async function() {
       if (this.isInitialized) return;
       this.isInitialized = true;
       
       try {
         await this.initSupabase();
-        await this.checkAuth();
+        const isAuth = await this.checkAuth();
         
         // Для страницы входа
         if (this.isLoginPage()) {
@@ -42,60 +43,30 @@
         this.showError('Произошла ошибка при загрузке приложения', false);
       }
     },
-    
+
     // Проверка текущей страницы
-    isLoginPage() {
+    isLoginPage: function() {
       return window.location.pathname.endsWith('index.html') || 
              window.location.pathname === '/';
     },
     
-    // Управление маршрутизацией
-    handleRouting() {
-      if (this.currentUser && this.isLoginPage()) {
-        this.redirectTo('main.html');
-      } else if (!this.currentUser && !this.isLoginPage()) {
-        this.redirectTo('index.html');
-      }
-    },
-    
-    // Универсальная функция перенаправления
-    redirectTo(page) {
-      // Защита от бесконечных перенаправлений
+    // Перенаправление
+    redirectTo: function(page) {
       if (window.location.pathname.endsWith(page)) return;
-      
-      // Для Render.com может потребоваться полный путь
-      const fullPath = window.location.href.includes('render.com') 
-        ? `https://my-website-cjed.onrender.com/${page}`
-        : page;
-        
-      window.location.href = fullPath;
+      window.location.href = page;
     },
-    // Загрузка Supabase SDK
-    async loadSupabaseSDK() {
-      return new Promise((resolve, reject) => {
-        if (window.supabase || window.supabaseClient) {
-          return resolve();
-        }
 
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/@supabase/supabase-js@^2';
-        script.async = true;
-        script.onload = resolve;
-        script.onerror = () => reject(new Error('Не удалось загрузить Supabase SDK'));
-        document.head.appendChild(script);
-      });
-    },
-    
     // Инициализация Supabase
-    async initSupabase() {
+    initSupabase: async function() {
       try {
-        if (!window.supabase) {
+        // Проверяем, загружен ли Supabase
+        if (typeof supabase === 'undefined') {
           await new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/@supabase/supabase-js@^2';
             script.async = true;
             script.onload = resolve;
-            script.onerror = reject;
+            script.onerror = () => reject(new Error('Не удалось загрузить Supabase SDK'));
             document.head.appendChild(script);
           });
         }
@@ -116,8 +87,25 @@
       }
     },
 
+    // Проверка авторизации
+    checkAuth: async function() {
+      try {
+        if (!this.supabase) throw new Error('Supabase не инициализирован');
+        
+        const { data: { user }, error } = await this.supabase.auth.getUser();
+        if (error) throw error;
+        
+        this.currentUser = user;
+        return !!user;
+      } catch (error) {
+        console.error('Ошибка проверки авторизации:', error);
+        this.currentUser = null;
+        return false;
+      }
+    },
+
     // Показ сообщения об ошибке
-    showError(message, isFatal = false) {
+    showError: function(message, isFatal = false) {
       // Удаляем старые сообщения
       const oldError = document.getElementById('app-error');
       if (oldError) oldError.remove();
@@ -140,7 +128,7 @@
     },
     
     // Инициализация корзины
-    async initCart() {
+    initCart: async function() {
       if (!this.currentUser || !this.supabase) return;
 
       try {
@@ -174,7 +162,7 @@
     },
     
     // Выход из системы
-    async signOut() {
+    signOut: async function() {
       try {
         if (!this.supabase) throw new Error('Supabase не инициализирован');
         
@@ -191,7 +179,7 @@
     },
     
     // Обновление UI
-    updateAuthUI() {
+    updateAuthUI: function() {
       const elements = {
         loginBtn: document.getElementById('loginBtn'),
         cartBtn: document.getElementById('cartBtn'),
@@ -212,7 +200,7 @@
     },
     
     // Настройка обработчиков событий
-    setupEventListeners() {
+    setupEventListeners: function() {
       // Выход из системы
       document.getElementById('logoutBtn')?.addEventListener('click', () => this.signOut());
       
@@ -232,7 +220,7 @@
     },
     
     // Обработчики закрытия модальных окон
-    setupModalCloseHandlers() {
+    setupModalCloseHandlers: function() {
       // Корзина
       document.querySelector('.close-cart')?.addEventListener('click', () => {
         document.getElementById('cartModal')?.classList.remove('show');
@@ -249,7 +237,7 @@
     },
     
     // Добавление товара в корзину
-    async addToCart(productName, productPrice, button) {
+    addToCart: async function(productName, productPrice, button) {
       try {
         if (!this.currentUser) {
           this.showError('Для добавления товаров в корзину войдите в систему', false);
@@ -316,7 +304,7 @@
     },
     
     // Обновление отображения корзины
-    async updateCartDisplay() {
+    updateCartDisplay: async function() {
       if (!this.cartId || !this.supabase) return;
       
       try {
@@ -379,7 +367,7 @@
     },
     
     // Обработчики для элементов корзины
-    setupCartItemHandlers() {
+    setupCartItemHandlers: function() {
       document.querySelectorAll('.quantity-btn.minus').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           const itemId = e.target.dataset.id;
@@ -409,7 +397,7 @@
     },
     
     // Обновление количества товара
-    async updateQuantity(itemId, newQuantity) {
+    updateQuantity: async function(itemId, newQuantity) {
       try {
         if (!this.supabase) throw new Error('Supabase не инициализирован');
 
@@ -433,7 +421,7 @@
     },
     
     // Удаление товара из корзины
-    async removeFromCart(itemId) {
+    removeFromCart: async function(itemId) {
       try {
         if (!this.supabase) throw new Error('Supabase не инициализирован');
 
@@ -452,7 +440,7 @@
     },
     
     // Оформление заказа
-    async handleCheckout() {
+    handleCheckout: async function() {
       try {
         if (!this.currentUser || !this.supabase) {
           this.showError('Для оформления заказа войдите в систему', false);
@@ -527,7 +515,7 @@
     },
     
     // Очистка корзины
-    async clearCart() {
+    clearCart: async function() {
       try {
         await this.supabase
           .from('cart_items')
@@ -549,7 +537,7 @@
     },
     
     // Показ модального окна авторизации
-    showAuthModal() {
+    showAuthModal: function() {
       const authModal = document.getElementById('authModal');
       if (authModal) {
         authModal.classList.add('show');
@@ -559,9 +547,13 @@
     }
   };
 
-  // Делаем методы доступными глобально, если необходимо
-  window.addToCart = (productName, productPrice, button) => app.addToCart(productName, productPrice, button);
+  // Делаем методы доступными глобально
+  window.addToCart = function(productName, productPrice, button) {
+    app.addToCart(productName, productPrice, button);
+  };
 
   // Запуск приложения
-  document.addEventListener('DOMContentLoaded', () => app.init());
+  document.addEventListener('DOMContentLoaded', function() {
+    app.init();
+  });
 })();
