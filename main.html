@@ -7,7 +7,7 @@
     ></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Горячая выпечка - Вход</title>
+    <title>Горячая выпечка - свежая выпечка с доставкой</title>
     <link rel="stylesheet" href="css/style.css" />
     <link
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap"
@@ -27,6 +27,9 @@
             <a href="#contacts">Контакты</a>
           </nav>
           <button class="login-btn" id="loginBtn">Вход</button>
+          <button class="cart-btn" id="cartBtn">
+            Корзина <span id="cartCount">0</span>
+          </button>
         </div>
       </div>
     </header>
@@ -44,7 +47,7 @@
           </div>
         </div>
       </section>
-    </main>
+
       <section id="products" class="products-section">
         <div class="container">
           <h2 class="section-title">Наша выпечка</h2>
@@ -339,6 +342,7 @@
         </div>
       </div>
     </footer>
+
     <!-- Модальное окно авторизации -->
     <div class="auth-modal" id="authModal">
       <div class="auth-content">
@@ -374,7 +378,20 @@
         </div>
       </div>
     </div>
-
-    <script src="js/auth.js"></script>
+    <!-- Модальное окно корзины -->
+    <div class="cart-modal" id="cartModal">
+      <div class="cart-content">
+        <span class="close-cart">&times;</span>
+        <h3>Ваша корзина</h3>
+        <div class="cart-items" id="cartItems">
+          <!-- Товары будут добавляться сюда -->
+        </div>
+        <div class="cart-total">Итого: <span id="cartTotal">0</span> ₽</div>
+        <button class="order-btn" id="checkoutBtn">Оформить заказ</button>
+      </div>
+    </div>
+    <!-- Подключаем Supabase -->
+    <script src="https://unpkg.com/@supabase/supabase-js@^2"></script>
+    <script src="js/script.js"></script>
   </body>
 </html>
