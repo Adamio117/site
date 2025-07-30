@@ -12,32 +12,39 @@
     
     // Основная функция инициализации
     init: async function() {
-      try {
+    try {
         if (this.isInitialized) return;
         console.log('[Init] Начало инициализации приложения');
 
-        // 1. Инициализация Supabase
+        // 1. Инициализация Supabase с обработкой ошибок
+        try {
         await this.retryOperation(this.initSupabase.bind(this), 'Supabase');
-        
-        // 2. Проверка аутентификации
-        await this.retryOperation(this.checkAuth.bind(this), 'Auth Check');
-        
-        // 3. Маршрутизация
-        await this.handleRouting();
-        
-        // 4. Инициализация для авторизованных пользователей
-        if (this.currentUser) {
-          await this.retryOperation(this.initCart.bind(this), 'Cart Init');
-          this.setupEventListeners();
-          this.updateAuthUI();
+        } catch (error) {
+        console.error('Supabase не инициализирован, работа в оффлайн-режиме');
+        this.supabase = null;
         }
 
+        // 2. Проверка аутентификации (только если Supabase инициализирован)
+        if (this.supabase) {
+        await this.retryOperation(this.checkAuth.bind(this), 'Auth Check');
+        }
+
+        // 3. Маршрутизация
+        await this.handleRouting();
+
+        // 4. Инициализация для авторизованных пользователей
+        if (this.currentUser && this.supabase) {
+        await this.initCart();
+        }
+
+        this.setupEventListeners();
+        this.updateAuthUI();
         this.isInitialized = true;
-        console.log('[Init] Приложение успешно инициализировано');
-      } catch (error) {
-        console.error('[Init] Критическая ошибка инициализации:', error);
-        this.showError('Системная ошибка. Пожалуйста, обновите страницу.', true);
-      }
+        
+    } catch (error) {
+        console.error('[Init] Критическая ошибка:', error);
+        this.showError('Ошибка инициализации. Пожалуйста, обновите страницу.', true);
+    }
     },
     // Повторная попытка выполнения операции
     retryOperation: async function(operation, operationName) {
@@ -65,25 +72,19 @@
 
     // Маршрутизация
     handleRouting: async function() {
-      console.log('[Routing] Проверка маршрутизации');
-      const isLoginPage = this.isLoginPage();
-      
-      if (isLoginPage && this.currentUser) {
-        console.log('[Routing] Перенаправление авторизованного пользователя на main.html');
+    const currentPath = window.location.pathname;
+    const isLoginPage = currentPath.endsWith('index.html') || currentPath === '/';
+    
+    if (isLoginPage && this.currentUser) {
         this.redirectTo('main.html');
-        return;
-      }
-      
-      if (!isLoginPage && !this.currentUser) {
-        console.log('[Routing] Перенаправление неавторизованного пользователя на index.html');
+    } else if (!isLoginPage && !this.currentUser) {
         this.redirectTo('index.html');
-        return;
-      }
-      
-      if (isLoginPage && !this.currentUser) {
-        console.log('[Routing] Показ модального окна авторизации');
-        this.showAuthModal();
-      }
+    }
+    
+    // Показываем модальное окно только на главной странице
+    if (isLoginPage) {
+        this.setupAuthModal();
+    }
     },
 
     // Проверка текущей страницы
@@ -104,60 +105,75 @@
 
     // Инициализация Supabase
     initSupabase: async function() {
-      try {
+    if (this.supabase) {
+        console.log('[Supabase] Клиент уже инициализирован');
+        return this.supabase;
+    }
+    try {
         console.log('[Supabase] Начало инициализации');
         
         // Проверяем, загружен ли Supabase
         if (typeof supabase === 'undefined') {
-          console.log('[Supabase] SDK не загружен, начинаем загрузку');
-          await new Promise((resolve, reject) => {
+        console.log('[Supabase] SDK не загружен, начинаем загрузку');
+        await new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/@supabase/supabase-js@^2';
             script.async = true;
             script.onload = resolve;
             script.onerror = () => reject(new Error('Не удалось загрузить Supabase SDK'));
             document.head.appendChild(script);
-          });
+        });
         }
         
         const SUPABASE_URL = 'https://pgnzjtnzagxrygxzfipu.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
         
         this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-          auth: {
+        auth: {
             persistSession: true,
             autoRefreshToken: true,
-            detectSessionInUrl: false
-          }
+            detectSessionInUrl: true, // Измените на true
+            storage: window.localStorage // Явно указываем хранилище
+        }
         });
         
-        // Тестовый запрос для проверки подключения
-        const { error } = await this.supabase.auth.getUser();
-        if (error) throw error;
+        // Проверяем наличие сессии
+        const { data: { session } } = await this.supabase.auth.getSession();
+        
+        if (!session) {
+        console.log('[Supabase] Сессия не найдена, пользователь не авторизован');
+        } else {
+        console.log('[Supabase] Сессия найдена');
+        }
         
         console.log('[Supabase] Успешно инициализирован');
-      } catch (error) {
+        return this.supabase;
+    } catch (error) {
         console.error('[Supabase] Ошибка инициализации:', error);
-        throw new Error('Ошибка подключения к Supabase');
-      }
+        throw new Error('Ошибка подключения к Supabase: ' + error.message);
+    }
     },
     // Проверка авторизации
     checkAuth: async function() {
-      try {
-        console.log('[Auth] Проверка авторизации');
-        if (!this.supabase) throw new Error('Supabase не инициализирован');
-        
-        const { data: { user }, error } = await this.supabase.auth.getUser();
-        if (error) throw error;
-        
-        this.currentUser = user;
-        console.log(`[Auth] Пользователь ${user ? 'авторизован' : 'не авторизован'}`);
-        return !!user;
-      } catch (error) {
-        console.error('[Auth] Ошибка проверки авторизации:', error);
-        this.currentUser = null;
-        throw new Error('Ошибка проверки авторизации');
-      }
+            if (!this.supabase) {
+            console.log('[Auth] Supabase не доступен, пропускаем проверку');
+            return false;
+        }
+        try {
+            console.log('[Auth] Проверка авторизации');
+            if (!this.supabase) throw new Error('Supabase не инициализирован');
+            
+            const { data: { user }, error } = await this.supabase.auth.getUser();
+            if (error) throw error;
+            
+            this.currentUser = user;
+            console.log(`[Auth] Пользователь ${user ? 'авторизован' : 'не авторизован'}`);
+            return !!user;
+        } catch (error) {
+            console.error('[Auth] Ошибка проверки авторизации:', error);
+            this.currentUser = null;
+            throw new Error('Ошибка проверки авторизации');
+        }
     },
 
     
@@ -300,7 +316,15 @@
     
     // Добавление товара в корзину
     addToCart: async function(productName, productPrice, button) {
+        
       try {
+        if (!this.currentUser) {
+            this.showAuthModal();
+            throw new Error('Требуется авторизация');
+        }
+        if (!this.supabase) {
+            throw new Error('Сервис временно недоступен');
+        }
         if (!this.currentUser) {
           this.showError('Для добавления товаров в корзину войдите в систему', false);
           this.redirectTo('index.html');
@@ -360,8 +384,8 @@
         
         await this.updateCartDisplay();
       } catch (error) {
-        console.error('Ошибка при добавлении в корзину:', error);
-        this.showError('Ошибка при добавлении в корзину: ' + error.message, false);
+        console.error('Ошибка добавления в корзину:', error);
+        this.showError(error.message, false);
       }
     },
     
