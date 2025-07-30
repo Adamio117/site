@@ -3,59 +3,41 @@ let supabase;
 let currentUser = null;
 let cartId = null;
 
-// Проверка загрузки Supabase SDK
-function isSupabaseLoaded() {
-  return typeof supabase !== 'undefined' || 
-         (typeof window !== 'undefined' && window.supabaseClient);
-}
-
-// Инициализация Supabase с повторными попытками
+// Инициализация Supabase
 async function initSupabase() {
-  const MAX_RETRIES = 3;
-  let attempts = 0;
-  
-  while (attempts < MAX_RETRIES) {
-    try {
-      if (!isSupabaseLoaded()) {
-        // Если Supabase не загружен, создаем элемент script
+  try {
+    // Проверяем, что Supabase SDK загружен
+    if (typeof supabase === 'undefined' && typeof window.supabaseClient === 'undefined') {
+      // Динамически загружаем SDK, если он не загружен
+      await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = 'https://unpkg.com/@supabase/supabase-js@^2';
-        script.id = 'supabase-sdk';
+        script.onload = resolve;
+        script.onerror = reject;
         document.head.appendChild(script);
-        
-        // Ждем загрузки SDK
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = reject;
-          setTimeout(() => reject(new Error('Supabase loading timeout')), 5000);
-        });
-      }
-
-      const SUPABASE_URL = 'https://my-website-cjed.onrender.com';
-      const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
-      
-      // Используем доступный клиент
-      supabase = window.supabaseClient 
-        ? window.supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY, {
-            auth: { persistSession: true, autoRefreshToken: true }
-          })
-        : supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-            auth: { persistSession: true, autoRefreshToken: true }
-          });
-
-      console.log('Supabase успешно инициализирован');
-      return supabase;
-      
-    } catch (error) {
-      attempts++;
-      console.error(`Попытка ${attempts} не удалась:`, error);
-      if (attempts >= MAX_RETRIES) {
-        throw error;
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+      });
     }
+
+    const SUPABASE_URL = 'https://my-website-cjed.onrender.com';
+    const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
+    
+    // Создаем клиент
+    supabase = window.supabaseClient 
+      ? window.supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY, {
+          auth: { persistSession: true, autoRefreshToken: true }
+        })
+      : supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+          auth: { persistSession: true, autoRefreshToken: true }
+        });
+
+    console.log('Supabase успешно инициализирован');
+    return supabase;
+  } catch (error) {
+    console.error('Ошибка инициализации Supabase:', error);
+    throw error;
   }
 }
+
 
 // Показ сообщения об ошибке
 function showError(message, isFatal = false) {
@@ -248,25 +230,42 @@ async function initCart() {
     throw error;
   }
 }
-
-// Обновление интерфейса
-function updateAuthUI() {
+// Выход из системы
+async function signOut() {
   try {
-    const loginBtn = document.getElementById('loginBtn');
-    const cartBtn = document.getElementById('cartBtn');
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
     
-    if (currentUser) {
-      if (loginBtn) loginBtn.textContent = 'Мой профиль';
-      if (cartBtn) cartBtn.style.display = 'flex';
-    }
+    currentUser = null;
+    cartId = null;
+    window.location.href = 'index.html';
   } catch (error) {
-    console.error('Ошибка обновления интерфейса:', error);
+    console.error('Ошибка выхода:', error);
+    alert('Ошибка при выходе из системы');
+  }
+}
+// Обновление UI
+function updateAuthUI() {
+  const loginBtn = document.getElementById('loginBtn');
+  const cartBtn = document.getElementById('cartBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  
+  if (currentUser) {
+    if (loginBtn) loginBtn.textContent = currentUser.email || 'Мой профиль';
+    if (cartBtn) cartBtn.style.display = 'flex';
+    if (logoutBtn) logoutBtn.style.display = 'block';
+  } else {
+    if (loginBtn) loginBtn.textContent = 'Вход';
+    if (cartBtn) cartBtn.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'none';
   }
 }
 
 // Настройка обработчиков событий
 function setupEventListeners() {
   try {
+    // Кнопка выхода
+    document.getElementById('logoutBtn')?.addEventListener('click', signOut);
     // Кнопка корзины
     document.getElementById('cartBtn')?.addEventListener('click', async () => {
       try {
@@ -556,24 +555,40 @@ async function handleCheckout() {
   }
 }
 
-// Основная функция инициализации приложения
+// Основная функция инициализации
 async function initApp() {
   try {
-    // Инициализируем Supabase
-    initSupabase();
+    // Инициализация Supabase
+    await initSupabase();
     
-    // Проверяем авторизацию
-    const isAuthenticated = await checkAuth();
+    // Проверка авторизации
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) throw error;
     
-    // Если пользователь авторизован, продолжаем инициализацию
-    if (isAuthenticated) {
+    currentUser = user;
+    updateAuthUI();
+    
+    // Логика перенаправления
+    const isLoginPage = window.location.pathname.endsWith('index.html');
+    if (user && isLoginPage) {
+      window.location.href = 'main.html';
+      return;
+    }
+    
+    if (!user && !isLoginPage) {
+      window.location.href = 'index.html';
+      return;
+    }
+    
+    // Инициализация для авторизованных пользователей
+    if (user) {
       await initCart();
       setupEventListeners();
-      updateAuthUI();
     }
+    
   } catch (error) {
-    console.error('Ошибка инициализации приложения:', error);
-    redirectToLogin();
+    console.error('Ошибка инициализации:', error);
+    // Не перенаправляем, чтобы пользователь мог войти
   }
 }
 
