@@ -1,23 +1,22 @@
 // Проверка загрузки Supabase
-if (typeof supabase === 'undefined') {
-  const errorMsg = 'Supabase не загружен! Добавьте: <script src="https://unpkg.com/@supabase/supabase-js@^2"></script>';
-  console.error(errorMsg);
-  document.body.innerHTML = `<div style="color:red;padding:20px;">${errorMsg}</div>`;
-  throw new Error(errorMsg);
-}
-
-// Инициализация
-const SUPABASE_URL = 'https://my-website-cjed.onrender.com';
-const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
-
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true
+document.addEventListener('DOMContentLoaded', async function() {
+  // Ждем загрузки Supabase SDK
+  if (typeof supabase === 'undefined') {
+    console.error('Supabase не загружен!');
+    return;
   }
-});
 
-document.addEventListener('DOMContentLoaded', function() {
+  // Инициализация Supabase
+  const SUPABASE_URL = 'https://pgnzjtnzagxrygxzfipu.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
+  
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true
+    }
+  });
+
   // Получаем элементы интерфейса
   const authModal = document.getElementById('authModal');
   const closeAuth = document.querySelector('.close-auth');
@@ -62,16 +61,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const password = this.querySelector('input[type="password"]').value;
     
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
         email,
         password
       });
       
       if (error) throw error;
       
-      window.location.href = '/main.html';
+      window.location.href = 'main.html';
     } catch (err) {
       alert('Ошибка входа: ' + err.message);
+      console.error('Ошибка входа:', err);
     }
   });
 
@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await supabaseClient.auth.signUp({
         email,
         password,
         options: {
@@ -100,16 +100,20 @@ document.addEventListener('DOMContentLoaded', function() {
       if (error) throw error;
 
       alert('Регистрация завершена! Проверьте почту для подтверждения.');
-      window.location.href = '/main.html';
+      window.location.href = 'main.html';
     } catch (err) {
       alert('Ошибка регистрации: ' + err.message);
+      console.error('Ошибка регистрации:', err);
     }
   });
 
   // Проверяем, если пользователь уже авторизован
-  supabase.auth.getUser().then(({ data: { user } }) => {
+  try {
+    const { data: { user } } = await supabaseClient.auth.getUser();
     if (user) {
-      window.location.href = '/main.html';
+      window.location.href = 'main.html';
     }
-  });
+  } catch (error) {
+    console.error('Ошибка проверки авторизации:', error);
+  }
 });
