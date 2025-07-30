@@ -4,7 +4,14 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-
+// В server.js добавьте:
+app.use(express.static('public', {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    }
+  }
+}));
 // Middleware
 app.use(cors());
 app.use(express.json());

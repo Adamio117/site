@@ -1,5 +1,7 @@
 // Используем IIFE для изоляции кода
 (function() {
+  'use strict';
+
   const app = {
     supabase: null,
     currentUser: null,
@@ -9,17 +11,19 @@
     // Инициализация приложения
     init: async function() {
       if (this.isInitialized) return;
-      this.isInitialized = true;
+      console.log('Инициализация приложения...');
       
       try {
         await this.initSupabase();
-        const isAuth = await this.checkAuth();
+        await this.checkAuth();
         
         // Для страницы входа
         if (this.isLoginPage()) {
           if (this.currentUser) {
+            console.log('Пользователь авторизован, перенаправляем на main.html');
             this.redirectTo('main.html');
           } else {
+            console.log('Показываем модальное окно авторизации');
             this.showAuthModal();
           }
           return;
@@ -27,12 +31,14 @@
         
         // Для главной страницы
         if (!this.isLoginPage() && !this.currentUser) {
+          console.log('Пользователь не авторизован, перенаправляем на index.html');
           this.redirectTo('index.html');
           return;
         }
         
         // Инициализация для авторизованных пользователей
         if (this.currentUser) {
+          console.log('Инициализация для авторизованного пользователя');
           await this.initCart();
           this.setupEventListeners();
           this.updateAuthUI();
@@ -41,26 +47,34 @@
       } catch (error) {
         console.error('Ошибка инициализации:', error);
         this.showError('Произошла ошибка при загрузке приложения', false);
+      } finally {
+        this.isInitialized = true;
       }
     },
 
     // Проверка текущей страницы
     isLoginPage: function() {
-      return window.location.pathname.endsWith('index.html') || 
-             window.location.pathname === '/';
+      const path = window.location.pathname;
+      return path.endsWith('index.html') || path === '/' || path === '/index.html';
     },
     
     // Перенаправление
     redirectTo: function(page) {
+      if (this.isLoginPage() && page === 'index.html') return;
       if (window.location.pathname.endsWith(page)) return;
+      
+      console.log(`Перенаправление на ${page}`);
       window.location.href = page;
     },
 
     // Инициализация Supabase
     initSupabase: async function() {
       try {
+        console.log('Инициализация Supabase...');
+        
         // Проверяем, загружен ли Supabase
         if (typeof supabase === 'undefined') {
+          console.log('Supabase не загружен, загружаем SDK...');
           await new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/@supabase/supabase-js@^2';
@@ -81,21 +95,24 @@
             detectSessionInUrl: false
           }
         });
+        
+        console.log('Supabase успешно инициализирован');
       } catch (error) {
         console.error('Ошибка инициализации Supabase:', error);
         throw error;
       }
     },
-
     // Проверка авторизации
     checkAuth: async function() {
       try {
+        console.log('Проверка авторизации...');
         if (!this.supabase) throw new Error('Supabase не инициализирован');
         
         const { data: { user }, error } = await this.supabase.auth.getUser();
         if (error) throw error;
         
         this.currentUser = user;
+        console.log('Статус авторизации:', user ? 'авторизован' : 'не авторизован');
         return !!user;
       } catch (error) {
         console.error('Ошибка проверки авторизации:', error);
@@ -103,10 +120,9 @@
         return false;
       }
     },
-
     // Показ сообщения об ошибке
     showError: function(message, isFatal = false) {
-      // Удаляем старые сообщения
+      console.error('Показ ошибки:', message);
       const oldError = document.getElementById('app-error');
       if (oldError) oldError.remove();
 
@@ -121,18 +137,19 @@
         </div>
       `;
       
-      // Добавляем обработчик для кнопки
       errorDiv.querySelector('.reload-btn').addEventListener('click', () => location.reload());
-      
       document.body.prepend(errorDiv);
     },
     
     // Инициализация корзины
     initCart: async function() {
-      if (!this.currentUser || !this.supabase) return;
+      console.log('Инициализация корзины...');
+      if (!this.currentUser || !this.supabase) {
+        console.log('Нет пользователя или Supabase - пропускаем инициализацию корзины');
+        return;
+      }
 
       try {
-        // Проверяем существующую активную корзину
         const { data, error } = await this.supabase
           .from('cart_sessions')
           .select('id')
@@ -143,9 +160,10 @@
         if (error) throw error;
 
         this.cartId = data?.id || null;
+        console.log('ID корзины:', this.cartId);
         
-        // Создаем новую корзину, если нет активной
         if (!this.cartId) {
+          console.log('Создание новой корзины...');
           const { data: newCart, error: cartError } = await this.supabase
             .from('cart_sessions')
             .insert({ user_id: this.currentUser.id })
@@ -154,6 +172,7 @@
           
           if (cartError) throw cartError;
           this.cartId = newCart.id;
+          console.log('Новая корзина создана, ID:', this.cartId);
         }
       } catch (error) {
         console.error('Ошибка инициализации корзины:', error);
@@ -548,12 +567,15 @@
   };
 
   // Делаем методы доступными глобально
-  window.addToCart = function(productName, productPrice, button) {
+    window.addToCart = function(productName, productPrice, button) {
     app.addToCart(productName, productPrice, button);
-  };
-
+    };
   // Запуск приложения
-  document.addEventListener('DOMContentLoaded', function() {
+  if (document.readyState === 'complete') {
     app.init();
-  });
+  } else {
+    document.addEventListener('DOMContentLoaded', function() {
+      app.init();
+    });
+  }
 })();
