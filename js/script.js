@@ -1,40 +1,52 @@
-// Используем IIFE для изоляции кода и предотвращения загрязнения глобальной области видимости
+// Используем IIFE для изоляции кода
 (function() {
-  // Локальные переменные приложения
   const app = {
     supabase: null,
     currentUser: null,
     cartId: null,
+    isInitialized: false,
     
-    // Инициализация приложения
     async init() {
+      if (this.isInitialized) return;
+      this.isInitialized = true;
+      
       try {
         await this.initSupabase();
         await this.checkAuth();
         
-        // Управление маршрутизацией
-        this.handleRouting();
+        // Для страницы входа
+        if (this.isLoginPage()) {
+          if (this.currentUser) {
+            this.redirectTo('main.html');
+          } else {
+            this.showAuthModal();
+          }
+          return;
+        }
+        
+        // Для главной страницы
+        if (!this.isLoginPage() && !this.currentUser) {
+          this.redirectTo('index.html');
+          return;
+        }
         
         // Инициализация для авторизованных пользователей
         if (this.currentUser) {
           await this.initCart();
           this.setupEventListeners();
-        }
-        
-        // Показ модального окна для страницы входа
-        if (this.isLoginPage()) {
-          this.showAuthModal();
+          this.updateAuthUI();
         }
         
       } catch (error) {
-        console.error('Ошибка инициализации приложения:', error);
+        console.error('Ошибка инициализации:', error);
         this.showError('Произошла ошибка при загрузке приложения', false);
       }
     },
     
     // Проверка текущей страницы
     isLoginPage() {
-      return window.location.pathname.endsWith('index.html');
+      return window.location.pathname.endsWith('index.html') || 
+             window.location.pathname === '/';
     },
     
     // Управление маршрутизацией
@@ -48,11 +60,16 @@
     
     // Универсальная функция перенаправления
     redirectTo(page) {
-      if (!window.location.pathname.endsWith(page)) {
-        window.location.href = page;
-      }
+      // Защита от бесконечных перенаправлений
+      if (window.location.pathname.endsWith(page)) return;
+      
+      // Для Render.com может потребоваться полный путь
+      const fullPath = window.location.href.includes('render.com') 
+        ? `https://my-website-cjed.onrender.com/${page}`
+        : page;
+        
+      window.location.href = fullPath;
     },
-    
     // Загрузка Supabase SDK
     async loadSupabaseSDK() {
       return new Promise((resolve, reject) => {
@@ -72,44 +89,33 @@
     // Инициализация Supabase
     async initSupabase() {
       try {
-        await this.loadSupabaseSDK();
-        
-        const SUPABASE_URL = 'https://my-website-cjed.onrender.com';
-        const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
-        
-        if (window.supabase) {
-          this.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-            auth: { persistSession: true, autoRefreshToken: true }
+        if (!window.supabase) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@supabase/supabase-js@^2';
+            script.async = true;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
           });
-        } else {
-          throw new Error('Supabase SDK не загружен');
         }
         
-        console.log('Supabase успешно инициализирован');
+        const SUPABASE_URL = 'https://pgnzjtnzagxrygxzfipu.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
+        
+        this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: false
+          }
+        });
       } catch (error) {
         console.error('Ошибка инициализации Supabase:', error);
         throw error;
       }
     },
-    
-    // Проверка авторизации
-    async checkAuth() {
-      try {
-        if (!this.supabase) throw new Error('Supabase не инициализирован');
-        
-        const { data: { user }, error } = await this.supabase.auth.getUser();
-        if (error) throw error;
-        
-        this.currentUser = user;
-        this.updateAuthUI();
-        return !!user;
-      } catch (error) {
-        console.error('Ошибка проверки авторизации:', error);
-        this.currentUser = null;
-        return false;
-      }
-    },
-    
+
     // Показ сообщения об ошибке
     showError(message, isFatal = false) {
       // Удаляем старые сообщения
@@ -557,9 +563,5 @@
   window.addToCart = (productName, productPrice, button) => app.addToCart(productName, productPrice, button);
 
   // Запуск приложения
-  if (document.readyState === 'complete') {
-    app.init();
-  } else {
-    document.addEventListener('DOMContentLoaded', () => app.init());
-  }
+  document.addEventListener('DOMContentLoaded', () => app.init());
 })();
