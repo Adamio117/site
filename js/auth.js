@@ -28,9 +28,27 @@ document.addEventListener('DOMContentLoaded', async function() {
   const registerFormElement = document.getElementById('registerFormElement');
 
   // Показываем модальное окно при загрузке
-  authModal.classList.add('show');
-  loginForm.style.display = 'block';
-  registerForm.style.display = 'none';
+  try {
+    const { data: { user }, error } = await supabaseClient.auth.getUser();
+    
+    if (error) throw error;
+    
+    // Перенаправляем ТОЛЬКО если пользователь авторизован
+    if (user) {
+      window.location.href = 'main.html';
+    } else {
+      // Показываем модальное окно только если пользователь не авторизован
+      authModal.classList.add('show');
+      loginForm.style.display = 'block';
+      registerForm.style.display = 'none';
+    }
+  } catch (error) {
+    console.error('Ошибка проверки авторизации:', error);
+    // Показываем модальное окно при ошибке
+    authModal.classList.add('show');
+    loginForm.style.display = 'block';
+    registerForm.style.display = 'none';
+  }
 
   // Обработчики авторизации
   closeAuth.addEventListener('click', function() {

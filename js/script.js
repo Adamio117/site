@@ -6,7 +6,7 @@ if (typeof supabase === 'undefined') {
   throw new Error(errorMsg);
 }
 
-// Инициализация
+// Инициализация Supabase
 const SUPABASE_URL = 'https://my-website-cjed.onrender.com';
 const SUPABASE_KEY = 'sb_publishable_fPztao9HFMBOlmMN4AeuFg_wRQvuD29';
 
@@ -26,141 +26,101 @@ window.addToCart = addToCart;
 window.updateQuantity = updateQuantity;
 window.removeFromCart = removeFromCart;
 
-document.addEventListener('DOMContentLoaded', function() {
-  // Получаем элементы интерфейса
+// Основная функция инициализации
+async function initApp() {
+  // Проверяем авторизацию
+  const isAuthenticated = await checkAuth();
+  if (!isAuthenticated) return;
+
+  // Инициализируем корзину
+  await initCart();
+  
+  // Настраиваем интерфейс
+  updateAuthUI();
+  setupEventListeners();
+}
+
+// Проверка авторизации
+async function checkAuth() {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error) {
+      console.error('Ошибка проверки авторизации:', error);
+      redirectToLogin();
+      return false;
+    }
+    
+    if (!user) {
+      redirectToLogin();
+      return false;
+    }
+    
+    currentUser = user;
+    return true;
+    
+  } catch (error) {
+    console.error('Ошибка проверки авторизации:', error);
+    redirectToLogin();
+    return false;
+  }
+}
+
+function redirectToLogin() {
+  // Проверяем, не находимся ли уже на странице входа
+  if (!window.location.pathname.endsWith('index.html')) {
+    window.location.href = 'index.html';
+  }
+}
+
+// Настройка обработчиков событий
+function setupEventListeners() {
   const loginBtn = document.getElementById('loginBtn');
   const cartBtn = document.getElementById('cartBtn');
   const cartModal = document.getElementById('cartModal');
   const closeCart = document.querySelector('.close-cart');
   const checkoutBtn = document.getElementById('checkoutBtn');
 
-  // Проверка авторизации при загрузке
-  checkAuth();
+  if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
+  }
 
-  // Обработчик кнопки входа
-  loginBtn.addEventListener('click', function() {
-    window.location.href = '/index.html';
-  });
-
-  // Обработчики корзины
-  cartBtn.addEventListener('click', async function() {
-    cartModal.classList.add('show');
-    await updateCartDisplay();
-  });
-
-  closeCart.addEventListener('click', function() {
-    cartModal.classList.remove('show');
-  });
-
-  cartModal.addEventListener('click', function(e) {
-    if (e.target === cartModal) {
-      cartModal.classList.remove('show');
-    }
-  });
-
-  checkoutBtn.addEventListener('click', async function() {
-    if (!currentUser) {
-      alert('Для оформления заказа войдите в систему');
-      authModal.classList.add('show');
-      cartModal.classList.remove('show');
-      return;
-    }
-
-    const address = prompt('Введите адрес доставки:');
-    if (!address) return;
-    
-    const phone = prompt('Введите ваш телефон:');
-    if (!phone) return;
-    
-    try {
-      const { data: cartItems, error: itemsError } = await supabase
-        .from('cart_items')
-        .select('product_id, quantity, price, products(name)')
-        .eq('cart_id', cartId);
-      
-      if (itemsError) throw itemsError;
-
-      if (!cartItems || cartItems.length === 0) {
-        alert('Корзина пуста');
-        return;
-      }
-
-      const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: currentUser.id,
-          total,
-          delivery_address: address,
-          phone,
-          status: 'processing'
-        })
-        .select()
-        .single();
-      
-      if (orderError) throw orderError;
-
-      const orderItems = cartItems.map(item => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price: item.price
-      }));
-
-      const { error: itemsInsertError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-      
-      if (itemsInsertError) throw itemsInsertError;
-
-      await supabase
-        .from('cart_items')
-        .delete()
-        .eq('cart_id', cartId);
-      
-      await supabase
-        .from('cart_sessions')
-        .delete()
-        .eq('id', cartId);
-      
-      cartId = null;
-      await initCart();
+  if (cartBtn) {
+    cartBtn.addEventListener('click', async () => {
+      cartModal.classList.add('show');
       await updateCartDisplay();
-      cartModal.classList.remove('show');
+    });
+  }
 
-      alert(`Заказ #${order.id} успешно оформлен! Сумма: ${total}₽`);
-    } catch (err) {
-      alert('Ошибка при оформлении заказа: ' + err.message);
-    }
-  });
-});
+  if (closeCart) {
+    closeCart.addEventListener('click', () => {
+      cartModal.classList.remove('show');
+    });
+  }
+
+  if (cartModal) {
+    cartModal.addEventListener('click', (e) => {
+      if (e.target === cartModal) {
+        cartModal.classList.remove('show');
+      }
+    });
+  }
+
+  if (checkoutBtn) {
+    checkoutBtn.addEventListener('click', handleCheckout);
+  }
+}
 
 // Обновление UI после авторизации
 function updateAuthUI() {
   const loginBtn = document.getElementById('loginBtn');
   const cartBtn = document.getElementById('cartBtn');
   
-  if (currentUser) {
+  if (currentUser && loginBtn && cartBtn) {
     loginBtn.textContent = 'Мой профиль';
     cartBtn.style.display = 'flex';
-  } else {
-    window.location.href = '/index.html';
-  }
-}
-
-// Проверка авторизации
-async function checkAuth() {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    currentUser = user;
-    updateAuthUI();
-    
-    if (user) {
-      await initCart();
-    }
-  } catch (error) {
-    console.error('Ошибка проверки авторизации:', error);
   }
 }
 
@@ -199,13 +159,13 @@ async function initCart() {
 async function addToCart(productName, productPrice, button) {
   if (!currentUser) {
     alert('Для добавления товаров в корзину войдите в систему');
-    document.getElementById('authModal').classList.add('show');
     return;
   }
 
   if (!cartId) await initCart();
   
   try {
+    // 1. Находим ID продукта по имени
     const { data: product, error: productError } = await supabase
       .from('products')
       .select('id')
@@ -214,6 +174,7 @@ async function addToCart(productName, productPrice, button) {
 
     if (productError || !product) throw productError || new Error('Товар не найден');
 
+    // 2. Проверяем, есть ли уже такой товар в корзине
     const { data: existingItem, error: itemError } = await supabase
       .from('cart_items')
       .select('id, quantity')
@@ -223,6 +184,7 @@ async function addToCart(productName, productPrice, button) {
 
     if (itemError) throw itemError;
 
+    // 3. Обновляем или добавляем товар
     if (existingItem) {
       const { error: updateError } = await supabase
         .from('cart_items')
@@ -243,13 +205,17 @@ async function addToCart(productName, productPrice, button) {
       if (insertError) throw insertError;
     }
 
-    button.textContent = 'Добавлено!';
-    setTimeout(() => {
-      button.textContent = 'Добавить';
-    }, 2000);
+    // 4. Обновляем UI
+    if (button) {
+      button.textContent = 'Добавлено!';
+      setTimeout(() => {
+        button.textContent = 'Добавить';
+      }, 2000);
+    }
     
     await updateCartDisplay();
   } catch (error) {
+    console.error('Ошибка при добавлении в корзину:', error);
     alert('Ошибка при добавлении в корзину: ' + error.message);
   }
 }
@@ -274,6 +240,8 @@ async function updateCartDisplay() {
     const cartItemsContainer = document.getElementById('cartItems');
     const cartTotal = document.getElementById('cartTotal');
     const cartCount = document.getElementById('cartCount');
+    
+    if (!cartItemsContainer || !cartTotal || !cartCount) return;
     
     cartItemsContainer.innerHTML = '';
     let total = 0;
@@ -328,6 +296,7 @@ async function updateQuantity(itemId, newQuantity) {
     
     await updateCartDisplay();
   } catch (error) {
+    console.error('Ошибка при обновлении количества:', error);
     alert('Ошибка при обновлении количества: ' + error.message);
   }
 }
@@ -344,6 +313,94 @@ async function removeFromCart(itemId) {
     
     await updateCartDisplay();
   } catch (error) {
+    console.error('Ошибка при удалении товара:', error);
     alert('Ошибка при удалении товара: ' + error.message);
   }
 }
+
+// Оформление заказа
+async function handleCheckout() {
+  if (!currentUser) {
+    alert('Для оформления заказа войдите в систему');
+    window.location.href = 'index.html';
+    return;
+  }
+
+  const address = prompt('Введите адрес доставки:');
+  if (!address) return;
+  
+  const phone = prompt('Введите ваш телефон:');
+  if (!phone) return;
+  
+  try {
+    // 1. Получаем товары из корзины
+    const { data: cartItems, error: itemsError } = await supabase
+      .from('cart_items')
+      .select('product_id, quantity, price, products(name)')
+      .eq('cart_id', cartId);
+    
+    if (itemsError) throw itemsError;
+
+    if (!cartItems || cartItems.length === 0) {
+      alert('Корзина пуста');
+      return;
+    }
+
+    // 2. Рассчитываем общую сумму
+    const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    // 3. Создаем заказ
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        user_id: currentUser.id,
+        total,
+        delivery_address: address,
+        phone,
+        status: 'processing'
+      })
+      .select()
+      .single();
+    
+    if (orderError) throw orderError;
+
+    // 4. Добавляем товары в заказ
+    const orderItems = cartItems.map(item => ({
+      order_id: order.id,
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price: item.price
+    }));
+
+    const { error: itemsInsertError } = await supabase
+      .from('order_items')
+      .insert(orderItems);
+    
+    if (itemsInsertError) throw itemsInsertError;
+
+    // 5. Очищаем корзину
+    await supabase
+      .from('cart_items')
+      .delete()
+      .eq('cart_id', cartId);
+    
+    await supabase
+      .from('cart_sessions')
+      .delete()
+      .eq('id', cartId);
+    
+    // 6. Обновляем состояние
+    cartId = null;
+    await initCart();
+    await updateCartDisplay();
+    document.getElementById('cartModal').classList.remove('show');
+
+    alert(`Заказ #${order.id} успешно оформлен! Сумма: ${total}₽`);
+  } catch (err) {
+    console.error('Ошибка при оформлении заказа:', err);
+    alert('Ошибка при оформлении заказа: ' + err.message);
+  }
+}
+
+// Запускаем приложение при загрузке страницы
+document.addEventListener('DOMContentLoaded', initApp);
