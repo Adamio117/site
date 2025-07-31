@@ -437,6 +437,27 @@ body {
     align-items: center;
     padding: 40px;
 }
+/* Стили для сообщений в формах */
+.auth-message {
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
+  font-size: 14px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.auth-message.error {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.auth-message.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
 /*
 Старое расположение элементов
 .auth-form input {

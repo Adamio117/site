@@ -1,44 +1,44 @@
-// script.js
-(function() {
-  'use strict';
+    // script.js
+    (function() {
+    'use strict';
 
-  const app = {
-    supabase: null,
-    currentUser: null,
-    cartId: null,
-    isInitialized: false,
-    retryCount: 0,
-    maxRetries: 3,
-    
-    // Основная функция инициализации
-init: async function() {
-  try {
-    if (this.isInitialized) return;
-    console.log('[Init] Начало инициализации приложения');
-
-    // 1. Инициализация Supabase
-    await this.retryOperation(this.initSupabase.bind(this), 'Supabase');
-    
-    // 2. Проверка аутентификации (не критично для работы)
+    const app = {
+        supabase: null,
+        currentUser: null,
+        cartId: null,
+        isInitialized: false,
+        retryCount: 0,
+        maxRetries: 3,
+        
+        // Основная функция инициализации
+    init: async function() {
     try {
-      await this.checkAuth();
-    } catch (authError) {
-      console.warn('[Init] Ошибка проверки авторизации (не критично):', authError);
+        if (this.isInitialized) return;
+        console.log('[Init] Начало инициализации приложения');
+
+        // 1. Инициализация Supabase
+        await this.retryOperation(this.initSupabase.bind(this), 'Supabase');
+        
+        // 2. Проверка аутентификации (не критично для работы)
+        try {
+        await this.checkAuth();
+        } catch (authError) {
+        console.warn('[Init] Ошибка проверки авторизации (не критично):', authError);
+        }
+        
+        // 3. Маршрутизация
+        await this.handleRouting();
+        
+        // 4. Инициализация UI
+        this.setupEventListeners();
+        this.updateAuthUI();
+        
+        this.isInitialized = true;
+    } catch (error) {
+        console.error('[Init] Критическая ошибка инициализации:', error);
+        this.showError('Системная ошибка. Пожалуйста, обновите страницу.', true);
     }
-    
-    // 3. Маршрутизация
-    await this.handleRouting();
-    
-    // 4. Инициализация UI
-    this.setupEventListeners();
-    this.updateAuthUI();
-    
-    this.isInitialized = true;
-  } catch (error) {
-    console.error('[Init] Критическая ошибка инициализации:', error);
-    this.showError('Системная ошибка. Пожалуйста, обновите страницу.', true);
-  }
-},
+    },
 
     // Повторная попытка выполнения операции
     retryOperation: async function(operation, operationName) {
@@ -148,38 +148,38 @@ init: async function() {
     },
 
     // Проверка авторизации
-checkAuth: async function() {
-  if (!this.supabase) {
-    console.log('[Auth] Supabase не доступен, пропускаем проверку');
-    return false;
-  }
-  
-  try {
-    console.log('[Auth] Проверка авторизации');
-    
-    // Сначала получаем сессию
-    const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-    
-    if (!session) {
-      console.log('[Auth] Сессия не найдена, пользователь не авторизован');
-      this.currentUser = null;
-      return false;
+    checkAuth: async function() {
+    if (!this.supabase) {
+        console.log('[Auth] Supabase не доступен, пропускаем проверку');
+        return false;
     }
     
-    // Затем получаем пользователя
-    const { data: { user }, error: userError } = await this.supabase.auth.getUser();
-    if (userError) throw userError;
-    
-    this.currentUser = user;
-    console.log(`[Auth] Пользователь ${user ? 'авторизован' : 'не авторизован'}`);
-    return !!user;
-  } catch (error) {
-    console.error('[Auth] Ошибка проверки авторизации:', error);
-    this.currentUser = null;
-    return false; // Возвращаем false вместо выброса ошибки
-  }
-},
+    try {
+        console.log('[Auth] Проверка авторизации');
+        
+        // Сначала получаем сессию
+        const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        
+        if (!session) {
+        console.log('[Auth] Сессия не найдена, пользователь не авторизован');
+        this.currentUser = null;
+        return false;
+        }
+        
+        // Затем получаем пользователя
+        const { data: { user }, error: userError } = await this.supabase.auth.getUser();
+        if (userError) throw userError;
+        
+        this.currentUser = user;
+        console.log(`[Auth] Пользователь ${user ? 'авторизован' : 'не авторизован'}`);
+        return !!user;
+    } catch (error) {
+        console.error('[Auth] Ошибка проверки авторизации:', error);
+        this.currentUser = null;
+        return false; // Возвращаем false вместо выброса ошибки
+    }
+    },
     
     // Инициализация корзины
     initCart: async function() {
@@ -391,12 +391,12 @@ checkAuth: async function() {
 
     // Обработка входа
     handleLogin: async function(email, password) {
-      try {
+    try {
         if (!this.supabase) throw new Error('Сервис недоступен');
         
         const { data, error } = await this.supabase.auth.signInWithPassword({
-          email,
-          password
+        email,
+        password
         });
         
         if (error) throw error;
@@ -406,36 +406,58 @@ checkAuth: async function() {
         this.updateAuthUI();
         document.getElementById('authModal').classList.remove('show');
         this.redirectTo('main.html');
-      } catch (error) {
+    } catch (error) {
         console.error('Ошибка входа:', error);
-        this.showError('Неверный email или пароль', false);
-      }
+        const message = error.message.includes('email') || error.message.includes('password') 
+        ? 'Неверный email или пароль' 
+        : 'Ошибка при входе';
+        this.showFormMessage('loginMessage', message, 'error');
+    }
     },
-
     // Обработка регистрации
     handleRegister: async function(email, password, name) {
-      try {
+    try {
         if (!this.supabase) throw new Error('Сервис недоступен');
         
         const { data, error } = await this.supabase.auth.signUp({
-          email,
-          password,
-          options: {
+        email,
+        password,
+        options: {
             data: {
-              name: name
+            name: name
             }
-          }
+        }
         });
         
         if (error) throw error;
         
-        this.showError('Регистрация успешна! Проверьте почту для подтверждения.', false);
+        this.showFormMessage('registerMessage', 'Регистрация успешна! Проверьте почту для подтверждения.', 'success');
         document.getElementById('registerForm').style.display = 'none';
         document.getElementById('loginForm').style.display = 'block';
-      } catch (error) {
+        
+        // Очищаем форму регистрации
+        document.getElementById('registerFormElement').reset();
+    } catch (error) {
         console.error('Ошибка регистрации:', error);
-        this.showError(error.message, false);
-      }
+        this.showFormMessage('registerMessage', error.message, 'error');
+    }
+    },
+
+    // Новый метод для отображения сообщений в формах
+    showFormMessage: function(formId, message, type = 'error') {
+    const messageElement = document.getElementById(formId);
+    if (!messageElement) return;
+    
+    messageElement.textContent = message;
+    messageElement.className = `auth-message ${type}`;
+    
+    // Автоматическое скрытие через 5 секунд для успешных сообщений
+    if (type === 'success') {
+        setTimeout(() => {
+        messageElement.textContent = '';
+        messageElement.className = 'auth-message';
+        }, 5000);
+    }
     },
 
     // Добавление товара в корзину
