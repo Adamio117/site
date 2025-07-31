@@ -286,6 +286,12 @@ checkAuth: async function() {
     // Настройка обработчиков событий
     setupEventListeners: function() {
       try {
+        //Кнопка Вход
+        document.getElementById('loginBtn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.showAuthModal();
+        });
+
         // 1. Обработчики форм авторизации
         const loginForm = document.getElementById('loginFormElement');
         if (loginForm) {
