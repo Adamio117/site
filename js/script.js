@@ -220,7 +220,7 @@
         throw new Error('Ошибка инициализации корзины');
       }
     },
-
+    /*
     // Показ сообщения об ошибке
     showError: function(message, isFatal = false) {
       console.error(`[Error] ${message}`);
@@ -243,7 +243,7 @@
       });
       
       document.body.prepend(errorDiv);
-    },
+    },*/
 
     // Выход из системы
     signOut: async function() {
