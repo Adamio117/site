@@ -66,18 +66,25 @@ console.log("Script.js loaded successfully!");
     },
     handlePasswordUpdate: async function () {
       try {
+        // 1. Проверяем инициализацию Supabase
         if (!this.supabase) {
           await this.initSupabase();
+          if (!this.supabase) throw new Error("Supabase не инициализирован");
         }
-        const token = localStorage.getItem("sb-recovery-token");
-        if (!token) {
-          throw new Error(
-            "Ссылка для восстановления недействительна. Запросите новую."
-          );
-        }
-        const passwordForm = document.getElementById("passwordForm");
-        if (!passwordForm) return;
 
+        // 2. Проверяем токен
+        const token = localStorage.getItem("sb-recovery-token");
+        if (!token) throw new Error("Токен не найден. Запросите новую ссылку.");
+
+        // 3. Верифицируем токен
+        const { error: verifyError } = await this.supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: ce48bee5c1fc6d55c0c2d2dff831f440081ba3249f1c186d1536bc4c,
+        });
+        if (verifyError) throw verifyError;
+
+        // 4. Обрабатываем форму
+        const passwordForm = document.getElementById("passwordForm");
         passwordForm.addEventListener("submit", async (e) => {
           e.preventDefault();
           const password = e.target.querySelector(
@@ -86,49 +93,22 @@ console.log("Script.js loaded successfully!");
           const confirmPassword = e.target.querySelectorAll(
             'input[type="password"]'
           )[1].value;
-          const messageElement = document.getElementById("passwordMessage");
-
-          if (!messageElement) return;
 
           if (password !== confirmPassword) {
-            messageElement.textContent = "Пароли не совпадают";
-            messageElement.className = "auth-message error";
-            return;
+            throw new Error("Пароли не совпадают");
           }
 
-          try {
-            const token = localStorage.getItem("sb-recovery-token");
-            if (!token) throw new Error("Недействительная ссылка");
+          // 5. Обновляем пароль
+          const { error: updateError } = await this.supabase.auth.updateUser({
+            password: password,
+          });
+          if (updateError) throw updateError;
 
-            const { error: verifyError } = await this.supabase.auth.verifyOtp({
-              type: "recovery",
-              token_hash: token,
-            });
-
-            if (verifyError) throw verifyError;
-
-            const { error: updateError } = await this.supabase.auth.updateUser({
-              password: password,
-            });
-
-            if (updateError) throw updateError;
-
-            messageElement.textContent =
-              "Пароль успешно изменён! Вы будете перенаправлены...";
-            messageElement.className = "auth-message success";
-
-            localStorage.removeItem("sb-recovery-token");
-            localStorage.removeItem("isRecoveryPage");
-
-            setTimeout(() => {
-              window.location.href = "main.html";
-            }, 2000);
-          } catch (error) {
-            console.error("Ошибка смены пароля:", error);
-            messageElement.textContent =
-              "Ошибка: " + (error.message || "Не удалось изменить пароль");
-            messageElement.className = "auth-message error";
-          }
+          // 6. Успех
+          document.getElementById("passwordMessage").textContent =
+            "Пароль изменён!";
+          localStorage.removeItem("sb-recovery-token");
+          setTimeout(() => (window.location.href = "main.html"), 2000);
         });
       } catch (error) {
         console.error("[Password Update] Ошибка:", error);
@@ -145,19 +125,19 @@ console.log("Script.js loaded successfully!");
         if (!this.supabase) {
           await this.initSupabase();
         }
-
+        if (typeof token !== "string" || token.length < 10) {
+          throw new Error("Неверный формат токена");
+        }
         if (type === "recovery") {
-          // ▼▼▼ Сохраняем токен в localStorage ▼▼▼
           localStorage.setItem("sb-recovery-token", token);
           localStorage.setItem("isRecoveryPage", "true");
-
-          // Перенаправляем на страницу сброса пароля
           window.location.href = "update-password.html";
-          return; // Прерываем выполнение
+          return;
         } else if (type === "signup") {
           const { error } = await this.supabase.auth.verifyOtp({
             type: "signup",
-            token_hash: token,
+            token_hash:
+              ce48bee5c1fc6d55c0c2d2dff831f440081ba3249f1c186d1536bc4c,
           });
 
           if (error) throw error;
