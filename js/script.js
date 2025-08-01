@@ -13,18 +13,46 @@
     // Основная функция инициализации
     init: async function () {
       try {
-        // Проверяем параметры URL для подтверждения email или сброса пароля
+        if (this.isInitialized) return;
+        console.log("[Init] Начало инициализации приложения");
+
+        // 1. Проверяем параметры URL для подтверждения email или сброса пароля
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get("type");
         const token = urlParams.get("token");
 
         if (type && token) {
           await this.handleAuthCallback(type, token);
+          return; // Прерываем дальнейшую инициализацию для обработки callback
         }
 
-        // Остальная часть вашей инициализации...
+        // 2. Инициализация Supabase
+        await this.retryOperation(this.initSupabase.bind(this), "Supabase");
+
+        // 3. Проверка аутентификации
+        try {
+          await this.checkAuth();
+        } catch (authError) {
+          console.warn(
+            "[Init] Ошибка проверки авторизации (не критично):",
+            authError
+          );
+        }
+
+        // 4. Маршрутизация
+        await this.handleRouting();
+
+        // 5. Инициализация UI
+        this.setupEventListeners();
+        this.updateAuthUI();
+
+        this.isInitialized = true;
       } catch (error) {
-        console.error("[Init] Ошибка:", error);
+        console.error("[Init] Критическая ошибка инициализации:", error);
+        this.showError(
+          "Системная ошибка. Пожалуйста, обновите страницу.",
+          true
+        );
       }
     },
 
@@ -550,37 +578,6 @@
       } catch (error) {
         console.error("Ошибка входа:", error);
         this.showFormMessage("loginMessage", error.message, "error");
-      }
-    },
-
-    // Добавьте новый метод для восстановления пароля:
-    handlePasswordReset: async function (email) {
-      try {
-        if (!this.supabase) throw new Error("Сервис недоступен");
-
-        const { error } = await this.supabase.auth.resetPasswordForEmail(
-          email,
-          {
-            redirectTo: window.location.origin + "/update-password.html",
-          }
-        );
-
-        if (error) throw error;
-
-        this.showFormMessage(
-          "resetMessage",
-          "Ссылка для сброса пароля отправлена на ваш email",
-          "success"
-        );
-      } catch (error) {
-        console.error("Ошибка восстановления пароля:", error);
-        this.showFormMessage(
-          "resetMessage",
-          error.message.includes("user not found")
-            ? "Аккаунт с таким email не найден"
-            : "Ошибка при отправке ссылки",
-          "error"
-        );
       }
     },
 
