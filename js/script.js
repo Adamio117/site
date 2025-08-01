@@ -29,10 +29,10 @@ console.log("Script.js loaded successfully!");
         // Проверяем параметры URL для подтверждения email или сброса пароля
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get("type");
-        const token = urlParams.get("token");
+        const access_token = urlParams.get("access_token");
 
-        if (type && token) {
-          await this.handleAuthCallback(type, token);
+        if (type && access_token) {
+          await this.handleAuthCallback(type, access_token);
           return;
         }
 
@@ -75,18 +75,18 @@ console.log("Script.js loaded successfully!");
         }
 
         // 2. Получаем токен из localStorage
-        const token = localStorage.getItem("sb-recovery-token");
-        if (!token || token.length < 10) {
+        const access_token = localStorage.getItem("sb-recovery-token");
+        if (!access_token || access_token.length < 10) {
           throw new Error(
             "Токен не найден или неверного формата. Запросите новую ссылку."
           );
         }
 
         // 3. Верифицируем токен
-        console.log("Проверяем токен:", token);
+        console.log("Проверяем токен:", access_token);
         const { error: verifyError } = await this.supabase.auth.verifyOtp({
           type: "recovery",
-          token_hash: token,
+          token_hash: access_token,
         });
 
         if (verifyError) {
@@ -156,18 +156,18 @@ console.log("Script.js loaded successfully!");
       }
     },
     // Обработка callback-аутентификации
-    handleAuthCallback: async function (type, token) {
+    handleAuthCallback: async function (type, access_token) {
       try {
         if (!this.supabase) await this.initSupabase();
 
         // Проверка формата токена
-        if (typeof token !== "string" || token.length < 10) {
+        if (typeof access_token !== "string" || access_token.length < 10) {
           throw new Error("Неверный формат токена");
         }
 
         if (type === "recovery") {
           // Сохраняем токен и перенаправляем
-          localStorage.setItem("sb-recovery-token", token);
+          localStorage.setItem("sb-recovery-token", access_token);
           localStorage.setItem("isRecoveryPage", "true");
 
           // Очищаем URL от параметров
@@ -182,7 +182,7 @@ console.log("Script.js loaded successfully!");
         } else if (type === "signup") {
           const { error } = await this.supabase.auth.verifyOtp({
             type: "signup",
-            token_hash: token,
+            token_hash: access_token,
           });
 
           if (error) throw error;
