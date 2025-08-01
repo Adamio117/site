@@ -66,25 +66,33 @@ console.log("Script.js loaded successfully!");
     },
     handlePasswordUpdate: async function () {
       try {
-        // 1. Проверяем инициализацию Supabase
-        if (!this.supabase) {
-          await this.initSupabase();
-          if (!this.supabase) throw new Error("Supabase не инициализирован");
+        // 1. Проверяем токен
+        const token = localStorage.getItem("sb-recovery-token"); // Используем правильный ключ!
+        if (!token) {
+          alert("Ссылка недействительна. Запросите новую.");
+          window.location.href = "/forgot-password.html";
+          throw new Error("Токен не найден");
+        }
+        // 2. Проверяем Supabase
+        if (!this.supabase) await this.initSupabase();
+
+        // 2. Верифицируем токен
+        const { error } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: token, // Передаём токен
+        });
+
+        if (error) {
+          console.error("Ошибка верификации:", error);
+          alert("Ссылка устарела. Запросите новую.");
+          localStorage.removeItem("sb-recovery-token");
+          return;
         }
 
-        // 2. Проверяем токен
-        const token = localStorage.getItem("sb-recovery-token");
-        if (!token) throw new Error("Токен не найден. Запросите новую ссылку.");
-
-        // 3. Верифицируем токен
-        const { error: verifyError } = await this.supabase.auth.verifyOtp({
-          type: "recovery",
-          token_hash: ce48bee5c1fc6d55c0c2d2dff831f440081ba3249f1c186d1536bc4c,
-        });
-        if (verifyError) throw verifyError;
-
-        // 4. Обрабатываем форму
+        // 4. Вешаем обработчик на форму
         const passwordForm = document.getElementById("passwordForm");
+        if (!passwordForm) return;
+
         passwordForm.addEventListener("submit", async (e) => {
           e.preventDefault();
           const password = e.target.querySelector(
@@ -98,17 +106,23 @@ console.log("Script.js loaded successfully!");
             throw new Error("Пароли не совпадают");
           }
 
-          // 5. Обновляем пароль
-          const { error: updateError } = await this.supabase.auth.updateUser({
-            password: password,
+          // 3. Меняем пароль
+          const { error: updateError } = await supabase.auth.updateUser({
+            password: "новый_пароль",
           });
-          if (updateError) throw updateError;
 
-          // 6. Успех
-          document.getElementById("passwordMessage").textContent =
-            "Пароль изменён!";
+          if (updateError) {
+            alert("Ошибка смены пароля: " + updateError.message);
+          } else {
+            alert("Пароль успешно изменён!");
+            localStorage.removeItem("sb-recovery-token");
+            window.location.href = "/login.html";
+          }
+
+          // 6. Успех!
+          alert("Пароль изменён!");
           localStorage.removeItem("sb-recovery-token");
-          setTimeout(() => (window.location.href = "main.html"), 2000);
+          window.location.href = "login.html"; // Перенаправляем на страницу входа
         });
       } catch (error) {
         console.error("[Password Update] Ошибка:", error);
@@ -122,22 +136,19 @@ console.log("Script.js loaded successfully!");
     // Добавьте новый метод для обработки callback'ов
     handleAuthCallback: async function (type, token) {
       try {
-        if (!this.supabase) {
-          await this.initSupabase();
-        }
+        if (!this.supabase) await this.initSupabase();
         if (typeof token !== "string" || token.length < 10) {
           throw new Error("Неверный формат токена");
         }
         if (type === "recovery") {
           localStorage.setItem("sb-recovery-token", token);
-          localStorage.setItem("isRecoveryPage", "true");
+          //localStorage.setItem("isRecoveryPage", "true");
           window.location.href = "update-password.html";
           return;
         } else if (type === "signup") {
           const { error } = await this.supabase.auth.verifyOtp({
             type: "signup",
-            token_hash:
-              ce48bee5c1fc6d55c0c2d2dff831f440081ba3249f1c186d1536bc4c,
+            token_hash: token,
           });
 
           if (error) throw error;
