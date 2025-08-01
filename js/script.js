@@ -968,7 +968,7 @@
       }
       
       // Очищаем сообщения
-      document.getElementById("loginMessage")?.textContent = "";
+      //document.getElementById("loginMessage")?.textContent = "";
       document.getElementById("registerMessage")?.textContent = "";
       document.getElementById("resetMessage")?.textContent = "";
     },
@@ -988,3 +988,4 @@
     });
   }
 })();
+
