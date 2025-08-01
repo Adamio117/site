@@ -333,22 +333,25 @@ body {
 
 /* Модальное окно авторизации */
 .auth-modal {
-  display: none;
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
 }
 
 .auth-modal.show {
-  display: flex;
+  opacity: 1;
+  visibility: visible;
 }
-
 .auth-content {
   background: white;
   padding: 30px;
@@ -394,10 +397,7 @@ body {
 }
 /* Новое расположение элементов */
 .auth-form {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
+  display: none;
 }
 
 .auth-form h3 {
@@ -413,9 +413,14 @@ body {
   gap: 15px;
 }
 
+.auth-form.show {
+  display: block;
+}
+
 .auth-form input {
   width: 100%;
   padding: 12px;
+  margin-bottom: 15px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 16px;
@@ -437,11 +442,9 @@ body {
 .auth-form button:hover {
   background-color: #b5651d;
 }
-
 .auth-switch {
   text-align: center;
   margin-top: 20px;
-  width: 100%;
 }
 
 .auth-switch a {
@@ -452,19 +455,20 @@ body {
 
 /* Дополнительные стили для модального окна */
 .auth-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 40px;
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  position: relative;
 }
 /* Стили для сообщений в формах */
 .auth-message {
   padding: 10px;
-  margin: 10px 0;
+  margin-bottom: 15px;
   border-radius: 4px;
-  font-size: 14px;
   text-align: center;
-  transition: all 0.3s ease;
 }
 
 .auth-message.error {

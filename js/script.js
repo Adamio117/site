@@ -417,7 +417,7 @@
         //Кнопка Вход
         document.getElementById("loginBtn")?.addEventListener("click", (e) => {
           e.preventDefault();
-          this.showAuthModal();
+          this.showAuthModal('login');
         });
 
         // 1. Обработчики форм авторизации
@@ -458,31 +458,23 @@
         // Кнопка "Забыли пароль"
         document.getElementById("showReset")?.addEventListener("click", (e) => {
           e.preventDefault();
-          document.getElementById("loginForm").classList.remove("show");
-          document.getElementById("resetForm").classList.add("show");
+          this.showAuthModal('reset');
         });
 
         // Возврат от восстановления ко входу
-        document
-          .getElementById("showLoginFromReset")
-          ?.addEventListener("click", (e) => {
-            e.preventDefault();
-            document.getElementById("resetForm").classList.remove("show");
-            document.getElementById("loginForm").classList.add("show");
-          });
+        document.getElementById("showLoginFromReset")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          this.showAuthModal('login');
+        });
         // 2. Переключение между формами
-        document
-          .getElementById("showRegister")
-          ?.addEventListener("click", (e) => {
-            e.preventDefault();
-            document.getElementById("loginForm").classList.remove("show");
-            document.getElementById("registerForm").classList.add("show");
-          });
+        document.getElementById("showRegister")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          this.showAuthModal('register');
+        });
 
         document.getElementById("showLogin")?.addEventListener("click", (e) => {
           e.preventDefault();
-          document.getElementById("registerForm").classList.remove("show");
-          document.getElementById("loginForm").classList.add("show");
+          this.showAuthModal('login');
         });
 
         // 3. Кнопка выхода
@@ -955,17 +947,30 @@
     },
 
     // Показ модального окна авторизации
-    showAuthModal: function () {
+    showAuthModal: function (formToShow = 'login') {
       const authModal = document.getElementById("authModal");
-      if (authModal) {
-        authModal.classList.add("show");
-        document.getElementById("loginForm").classList.add("show");
-        document.getElementById("registerForm").classList.remove("show");
+      if (!authModal) return;
 
-        // Очищаем сообщения
-        document.getElementById("loginMessage").textContent = "";
-        document.getElementById("registerMessage").textContent = "";
+      authModal.classList.add("show");
+      
+      // Скрываем все формы
+      document.getElementById("loginForm")?.classList.remove("show");
+      document.getElementById("registerForm")?.classList.remove("show");
+      document.getElementById("resetForm")?.classList.remove("show");
+      
+      // Показываем нужную форму
+      if (formToShow === 'register') {
+        document.getElementById("registerForm")?.classList.add("show");
+      } else if (formToShow === 'reset') {
+        document.getElementById("resetForm")?.classList.add("show");
+      } else {
+        document.getElementById("loginForm")?.classList.add("show");
       }
+      
+      // Очищаем сообщения
+      document.getElementById("loginMessage")?.textContent = "";
+      document.getElementById("registerMessage")?.textContent = "";
+      document.getElementById("resetMessage")?.textContent = "";
     },
   };
 
