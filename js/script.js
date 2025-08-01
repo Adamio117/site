@@ -13,6 +13,79 @@
     // Основная функция инициализации
     init: async function () {
       try {
+        // Проверяем параметры URL для подтверждения email или сброса пароля
+        const urlParams = new URLSearchParams(window.location.search);
+        const type = urlParams.get("type");
+        const token = urlParams.get("token");
+
+        if (type && token) {
+          await this.handleAuthCallback(type, token);
+        }
+
+        // Остальная часть вашей инициализации...
+      } catch (error) {
+        console.error("[Init] Ошибка:", error);
+      }
+    },
+
+    // Добавьте новый метод для обработки callback'ов
+    handleAuthCallback: async function (type, token) {
+      try {
+        if (!this.supabase) {
+          await this.initSupabase();
+        }
+
+        if (type === "recovery") {
+          // Сохраняем токен для использования на странице сброса пароля
+          localStorage.setItem("sb-recovery-token", token);
+          this.redirectTo("update-password.html");
+        } else if (type === "signup") {
+          const { error } = await this.supabase.auth.verifyOtp({
+            type: "signup",
+            token_hash: token,
+          });
+
+          if (error) throw error;
+
+          alert("Email успешно подтвержден! Теперь вы можете войти.");
+          this.redirectTo("index.html");
+        }
+      } catch (error) {
+        console.error("Ошибка обработки callback:", error);
+        this.showError("Недействительная или просроченная ссылка", false);
+      }
+    },
+
+    // Обновите метод handlePasswordReset
+    handlePasswordReset: async function (email) {
+      try {
+        if (!this.supabase) throw new Error("Сервис недоступен");
+
+        const { error } = await this.supabase.auth.resetPasswordForEmail(
+          email,
+          {
+            redirectTo: `${window.location.origin}/update-password.html`,
+          }
+        );
+
+        if (error) throw error;
+
+        this.showFormMessage(
+          "resetMessage",
+          "Ссылка для сброса пароля отправлена на ваш email",
+          "success"
+        );
+      } catch (error) {
+        console.error("Ошибка восстановления:", error);
+        this.showFormMessage(
+          "resetMessage",
+          error.message.includes("user not found")
+            ? "Аккаунт с таким email не найден"
+            : "Ошибка при отправке ссылки",
+          "error"
+        );
+      }
+      try {
         if (this.isInitialized) return;
         console.log("[Init] Начало инициализации приложения");
 
@@ -344,7 +417,31 @@
             await this.handleRegister(email, password, name);
           });
         }
+        // Обработчик формы восстановления пароля
+        const resetForm = document.getElementById("resetFormElement");
+        if (resetForm) {
+          resetForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = e.target.querySelector('input[type="email"]').value;
+            await this.handlePasswordReset(email);
+          });
+        }
 
+        // Кнопка "Забыли пароль"
+        document.getElementById("showReset")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          document.getElementById("loginForm").classList.remove("show");
+          document.getElementById("resetForm").classList.add("show");
+        });
+
+        // Возврат от восстановления ко входу
+        document
+          .getElementById("showLoginFromReset")
+          ?.addEventListener("click", (e) => {
+            e.preventDefault();
+            document.getElementById("resetForm").classList.remove("show");
+            document.getElementById("loginForm").classList.add("show");
+          });
         // 2. Переключение между формами
         document
           .getElementById("showRegister")
@@ -435,7 +532,15 @@
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes("Invalid login credentials")) {
+            throw new Error("Неверный email или пароль");
+          }
+          if (error.message.includes("Email not confirmed")) {
+            throw new Error("Аккаунт не подтвержден. Проверьте вашу почту");
+          }
+          throw error;
+        }
 
         this.currentUser = data.user;
         await this.initCart();
@@ -444,39 +549,82 @@
         this.redirectTo("main.html");
       } catch (error) {
         console.error("Ошибка входа:", error);
-        const message =
-          error.message.includes("email") || error.message.includes("password")
-            ? "Неверный email или пароль"
-            : "Ошибка при входе";
-        this.showFormMessage("loginMessage", message, "error");
+        this.showFormMessage("loginMessage", error.message, "error");
       }
     },
-    // Обработка регистрации
-    handleRegister: async function (email, password, name) {
+
+    // Добавьте новый метод для восстановления пароля:
+    handlePasswordReset: async function (email) {
       try {
         if (!this.supabase) throw new Error("Сервис недоступен");
+
+        const { error } = await this.supabase.auth.resetPasswordForEmail(
+          email,
+          {
+            redirectTo: window.location.origin + "/update-password.html",
+          }
+        );
+
+        if (error) throw error;
+
+        this.showFormMessage(
+          "resetMessage",
+          "Ссылка для сброса пароля отправлена на ваш email",
+          "success"
+        );
+      } catch (error) {
+        console.error("Ошибка восстановления пароля:", error);
+        this.showFormMessage(
+          "resetMessage",
+          error.message.includes("user not found")
+            ? "Аккаунт с таким email не найден"
+            : "Ошибка при отправке ссылки",
+          "error"
+        );
+      }
+    },
+
+    // Обработка регистрации
+    handleRegister: async function (email, password, name, confirmPassword) {
+      try {
+        if (!this.supabase) throw new Error("Сервис недоступен");
+
+        // Валидация
+        if (!email || !password || !confirmPassword) {
+          throw new Error("Заполните все поля");
+        }
+
+        if (password !== confirmPassword) {
+          throw new Error("Пароли не совпадают");
+        }
+
+        if (password.length < 8) {
+          throw new Error("Пароль должен содержать минимум 8 символов");
+        }
 
         const { data, error } = await this.supabase.auth.signUp({
           email,
           password,
           options: {
-            data: {
-              name: name,
-            },
+            data: { name },
+            emailRedirectTo: window.location.origin + "/main.html",
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes("User already registered")) {
+            throw new Error("Аккаунт с таким email уже существует");
+          }
+          throw error;
+        }
 
         this.showFormMessage(
           "registerMessage",
           "Регистрация успешна! Проверьте почту для подтверждения.",
           "success"
         );
-        document.getElementById("registerForm").style.display = "none";
-        document.getElementById("loginForm").style.display = "block";
 
-        // Очищаем форму регистрации
+        // Очищаем форму
         document.getElementById("registerFormElement").reset();
       } catch (error) {
         console.error("Ошибка регистрации:", error);

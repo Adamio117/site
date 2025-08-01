@@ -335,18 +335,36 @@
             </p>
           </div>
 
+          <div class="auth-form" id="resetForm" style="display: none">
+            <h3>Восстановление пароля</h3>
+            <div class="auth-message" id="resetMessage"></div>
+            <form id="resetFormElement">
+              <input type="email" placeholder="Ваш email" required />
+              <button type="submit">Отправить ссылку</button>
+            </form>
+            <p class="auth-switch">
+              <a href="#" id="showLoginFromReset">Вернуться к входу</a>
+            </p>
+          </div>
+
+          <!-- В loginForm добавьте ссылку на восстановление: -->
+          <p class="auth-switch">
+            Нет аккаунта? <a href="#" id="showRegister">Зарегистрируйтесь</a><br>
+            <a href="#" id="showReset">Забыли пароль?</a>
+          </p>
+
           <div class="auth-form" id="registerForm">
             <h3>Регистрация</h3>
             <div class="auth-message" id="registerMessage"></div>
             <form id="registerFormElement">
               <input type="text" placeholder="Имя" required />
               <input type="email" placeholder="Email" required />
-              <input type="password" placeholder="Пароль" required />
+              <input type="password" placeholder="Пароль (минимум 8 символов)" required minlength="8" />
               <input type="password" placeholder="Повторите пароль" required />
               <button type="submit">Зарегистрироваться</button>
             </form>
             <p class="auth-switch">
-              Уже есть аккаунт? <a href="#" id="showLogin">Войдите</a>
+              Уже есть аккаунт? <a href="{{ .ConfirmationURL }}" id="showLogin">Войдите</a>
             </p>
           </div>
         </div>

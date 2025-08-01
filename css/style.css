@@ -692,3 +692,35 @@ body {
   background-color: #d32f2f;
   color: white;
 }
+/* Добавьте в конец файла: */
+#resetForm {
+  display: none;
+}
+
+#resetForm.show {
+  display: block;
+}
+
+.auth-switch a {
+  display: inline-block;
+  margin-top: 5px;
+}
+
+.password-strength {
+  font-size: 12px;
+  margin-top: -10px;
+  margin-bottom: 10px;
+  color: #666;
+}
+
+.password-strength.weak {
+  color: #d32f2f;
+}
+
+.password-strength.medium {
+  color: #ffa000;
+}
+
+.password-strength.strong {
+  color: #388e3c;
+}
