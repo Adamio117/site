@@ -954,23 +954,23 @@
       authModal.classList.add("show");
       
       // Скрываем все формы
-      document.getElementById("loginForm")?.classList.remove("show");
-      document.getElementById("registerForm")?.classList.remove("show");
-      document.getElementById("resetForm")?.classList.remove("show");
-      
+      document.getElementById("loginForm").classList.remove("show");
+      document.getElementById("registerForm").classList.remove("show");
+      document.getElementById("resetForm").classList.remove("show");
+
       // Показываем нужную форму
-      if (formToShow === 'register') {
-        document.getElementById("registerForm")?.classList.add("show");
-      } else if (formToShow === 'reset') {
-        document.getElementById("resetForm")?.classList.add("show");
+      if (formToShow === "register") {
+        document.getElementById("registerForm").classList.add("show");
+      } else if (formToShow === "reset") {
+        document.getElementById("resetForm").classList.add("show");
       } else {
-        document.getElementById("loginForm")?.classList.add("show");
+        document.getElementById("loginForm").classList.add("show");
       }
-      
+
       // Очищаем сообщения
-      //document.getElementById("loginMessage")?.textContent = "";
-      document.getElementById("registerMessage")?.textContent = "";
-      document.getElementById("resetMessage")?.textContent = "";
+      document.getElementById("loginMessage").textContent = "";
+      document.getElementById("registerMessage").textContent = "";
+      document.getElementById("resetMessage").textContent = "";
     },
   };
 
@@ -988,4 +988,5 @@
     });
   }
 })();
+
 
