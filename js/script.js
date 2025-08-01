@@ -1,3 +1,4 @@
+console.log("Script.js loaded successfully!");
 // script.js
 (function () {
   "use strict";
@@ -989,3 +990,4 @@
     });
   }
 })();
+
