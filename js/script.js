@@ -14,7 +14,15 @@
     init: async function () {
       try {
         if (this.isInitialized) return;
-        console.log("[Init] Начало инициализации приложения");
+
+        // Проверяем, находимся ли мы на странице восстановления пароля
+        const isRecoveryPage = window.location.pathname.includes(
+          "update-password.html"
+        );
+        if (isRecoveryPage) {
+          localStorage.setItem("isRecoveryPage", "true");
+          return;
+        }
 
         // 1. Проверяем параметры URL для подтверждения email или сброса пароля
         const urlParams = new URLSearchParams(window.location.search);
@@ -32,7 +40,7 @@
         // 3. Проверка аутентификации
         try {
           await this.checkAuth();
-        } catch (authError) {
+        } catch (error) {
           console.warn(
             "[Init] Ошибка проверки авторизации (не критично):",
             authError
@@ -55,7 +63,6 @@
         );
       }
     },
-
     // Добавьте новый метод для обработки callback'ов
     handleAuthCallback: async function (type, token) {
       try {
@@ -66,6 +73,8 @@
         if (type === "recovery") {
           // Сохраняем токен для использования на странице сброса пароля
           localStorage.setItem("sb-recovery-token", token);
+          // Добавляем флаг, что это страница восстановления
+          localStorage.setItem("isRecoveryPage", "true");
           this.redirectTo("update-password.html");
         } else if (type === "signup") {
           const { error } = await this.supabase.auth.verifyOtp({
@@ -347,31 +356,6 @@
         throw new Error("Ошибка инициализации корзины");
       }
     },
-    /*
-    // Показ сообщения об ошибке
-    showError: function(message, isFatal = false) {
-      console.error(`[Error] ${message}`);
-      const oldError = document.getElementById('app-error');
-      if (oldError) oldError.remove();
-
-      const errorDiv = document.createElement('div');
-      errorDiv.id = 'app-error';
-      errorDiv.className = 'error-message';
-      errorDiv.innerHTML = `
-        <div class="error-content">
-          <strong>${message}</strong>
-          <button class="reload-btn">Обновить страницу</button>
-          ${isFatal ? '' : '<div class="error-note">Некоторые функции могут быть недоступны</div>'}
-        </div>
-      `;
-      
-      errorDiv.querySelector('.reload-btn').addEventListener('click', () => {
-        location.reload();
-      });
-      
-      document.body.prepend(errorDiv);
-    },*/
-
     // Выход из системы
     signOut: async function () {
       try {
@@ -417,7 +401,7 @@
         //Кнопка Вход
         document.getElementById("loginBtn")?.addEventListener("click", (e) => {
           e.preventDefault();
-          this.showAuthModal('login');
+          this.showAuthModal("login");
         });
 
         // 1. Обработчики форм авторизации
@@ -458,23 +442,27 @@
         // Кнопка "Забыли пароль"
         document.getElementById("showReset")?.addEventListener("click", (e) => {
           e.preventDefault();
-          this.showAuthModal('reset');
+          this.showAuthModal("reset");
         });
 
         // Возврат от восстановления ко входу
-        document.getElementById("showLoginFromReset")?.addEventListener("click", (e) => {
-          e.preventDefault();
-          this.showAuthModal('login');
-        });
+        document
+          .getElementById("showLoginFromReset")
+          ?.addEventListener("click", (e) => {
+            e.preventDefault();
+            this.showAuthModal("login");
+          });
         // 2. Переключение между формами
-        document.getElementById("showRegister")?.addEventListener("click", (e) => {
-          e.preventDefault();
-          this.showAuthModal('register');
-        });
+        document
+          .getElementById("showRegister")
+          ?.addEventListener("click", (e) => {
+            e.preventDefault();
+            this.showAuthModal("register");
+          });
 
         document.getElementById("showLogin")?.addEventListener("click", (e) => {
           e.preventDefault();
-          this.showAuthModal('login');
+          this.showAuthModal("login");
         });
 
         // 3. Кнопка выхода
@@ -574,12 +562,25 @@
     },
 
     // Обработка регистрации
-    handleRegister: async function (email, password, name, confirmPassword) {
+    handleRegister: async function (email, password, name) {
       try {
         if (!this.supabase) throw new Error("Сервис недоступен");
 
+        // Получаем значения из формы
+        const registerForm = document.getElementById("registerFormElement");
+        if (!registerForm) throw new Error("Форма регистрации не найдена");
+
+        const email = registerForm.querySelector('input[type="email"]').value;
+        const password = registerForm.querySelector(
+          'input[type="password"]'
+        ).value;
+        const confirmPassword = registerForm.querySelectorAll(
+          'input[type="password"]'
+        )[1].value;
+        const name = registerForm.querySelector('input[type="text"]').value;
+
         // Валидация
-        if (!email || !password || !confirmPassword) {
+        if (!email || !password || !confirmPassword || !name) {
           throw new Error("Заполните все поля");
         }
 
@@ -614,7 +615,7 @@
         );
 
         // Очищаем форму
-        document.getElementById("registerFormElement").reset();
+        registerForm.reset();
       } catch (error) {
         console.error("Ошибка регистрации:", error);
         this.showFormMessage("registerMessage", error.message, "error");
@@ -947,12 +948,12 @@
     },
 
     // Показ модального окна авторизации
-    showAuthModal: function (formToShow = 'login') {
+    showAuthModal: function (formToShow = "login") {
       const authModal = document.getElementById("authModal");
       if (!authModal) return;
 
       authModal.classList.add("show");
-      
+
       // Скрываем все формы
       document.getElementById("loginForm").classList.remove("show");
       document.getElementById("registerForm").classList.remove("show");
@@ -988,5 +989,3 @@
     });
   }
 })();
-
-
