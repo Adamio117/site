@@ -1,4 +1,4 @@
-const mysql = require('mysql2/promise');
+const mysql = require("mysql2/promise");
 
 async function testConnection() {
   const connection = await mysql.createConnection({
@@ -6,9 +6,9 @@ async function testConnection() {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    ssl: process.env.SSL_MODE ? { rejectUnauthorized: false } : null
+    ssl: process.env.SSL_MODE ? { rejectUnauthorized: false } : null,
   });
-  console.log('✅ Успешное подключение к БД!');
+  console.log("✅ Успешное подключение к БД!");
 }
 
-testConnection().catch(err => console.error('Ошибка:', err));
+testConnection().catch((err) => console.error("Ошибка:", err));
