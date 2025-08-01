@@ -22,9 +22,9 @@ console.log("Script.js loaded successfully!");
         );
         if (isRecoveryPage) {
           localStorage.setItem("isRecoveryPage", "true");
-          return;
+          await this.handlePasswordUpdate(); // Запускаем обработчик
+          return; // Прерываем дальнейшую инициализацию
         }
-
         // 1. Проверяем параметры URL для подтверждения email или сброса пароля
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get("type");
@@ -62,6 +62,71 @@ console.log("Script.js loaded successfully!");
           "Системная ошибка. Пожалуйста, обновите страницу.",
           true
         );
+      }
+    },
+    handlePasswordUpdate: async function () {
+      try {
+        if (!this.supabase) {
+          await this.initSupabase();
+        }
+
+        const passwordForm = document.getElementById("passwordForm");
+        if (!passwordForm) return;
+
+        passwordForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const password = e.target.querySelector(
+            'input[type="password"]'
+          ).value;
+          const confirmPassword = e.target.querySelectorAll(
+            'input[type="password"]'
+          )[1].value;
+          const messageElement = document.getElementById("passwordMessage");
+
+          if (!messageElement) return;
+
+          if (password !== confirmPassword) {
+            messageElement.textContent = "Пароли не совпадают";
+            messageElement.className = "auth-message error";
+            return;
+          }
+
+          try {
+            const token = localStorage.getItem("sb-recovery-token");
+            if (!token) throw new Error("Недействительная ссылка");
+
+            const { error: verifyError } = await this.supabase.auth.verifyOtp({
+              type: "recovery",
+              token_hash: token,
+            });
+
+            if (verifyError) throw verifyError;
+
+            const { error: updateError } = await this.supabase.auth.updateUser({
+              password: password,
+            });
+
+            if (updateError) throw updateError;
+
+            messageElement.textContent =
+              "Пароль успешно изменён! Вы будете перенаправлены...";
+            messageElement.className = "auth-message success";
+
+            localStorage.removeItem("sb-recovery-token");
+            localStorage.removeItem("isRecoveryPage");
+
+            setTimeout(() => {
+              window.location.href = "main.html";
+            }, 2000);
+          } catch (error) {
+            console.error("Ошибка смены пароля:", error);
+            messageElement.textContent =
+              "Ошибка: " + (error.message || "Не удалось изменить пароль");
+            messageElement.className = "auth-message error";
+          }
+        });
+      } catch (error) {
+        console.error("[Password Update] Ошибка:", error);
       }
     },
     // Добавьте новый метод для обработки callback'ов
@@ -990,4 +1055,3 @@ console.log("Script.js loaded successfully!");
     });
   }
 })();
-
