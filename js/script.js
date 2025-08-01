@@ -22,36 +22,37 @@ console.log("Script.js loaded successfully!");
         );
         if (isRecoveryPage) {
           localStorage.setItem("isRecoveryPage", "true");
-          await this.handlePasswordUpdate(); // Запускаем обработчик
-          return; // Прерываем дальнейшую инициализацию
+          await this.handlePasswordUpdate();
+          return;
         }
-        // 1. Проверяем параметры URL для подтверждения email или сброса пароля
+
+        // Проверяем параметры URL для подтверждения email или сброса пароля
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get("type");
         const token = urlParams.get("token");
 
         if (type && token) {
           await this.handleAuthCallback(type, token);
-          return; // Прерываем дальнейшую инициализацию для обработки callback
+          return;
         }
 
-        // 2. Инициализация Supabase
+        // Инициализация Supabase
         await this.retryOperation(this.initSupabase.bind(this), "Supabase");
 
-        // 3. Проверка аутентификации
+        // Проверка аутентификации
         try {
           await this.checkAuth();
         } catch (error) {
           console.warn(
             "[Init] Ошибка проверки авторизации (не критично):",
-            authError
+            error
           );
         }
 
-        // 4. Маршрутизация
+        // Маршрутизация
         await this.handleRouting();
 
-        // 5. Инициализация UI
+        // Инициализация UI
         this.setupEventListeners();
         this.updateAuthUI();
 
@@ -64,32 +65,38 @@ console.log("Script.js loaded successfully!");
         );
       }
     },
+    // Обработка восстановления пароля
     handlePasswordUpdate: async function () {
       try {
-        // 1. Проверяем токен
-        const token = localStorage.getItem("sb-recovery-token"); // Используем правильный ключ!
-        if (!token) {
-          alert("Ссылка недействительна. Запросите новую.");
-          window.location.href = "/forgot-password.html";
-          throw new Error("Токен не найден");
+        // 1. Проверяем инициализацию Supabase
+        if (!this.supabase) {
+          await this.initSupabase();
+          if (!this.supabase) throw new Error("Supabase не инициализирован");
         }
-        // 2. Проверяем Supabase
-        if (!this.supabase) await this.initSupabase();
 
-        // 2. Верифицируем токен
-        const { error } = await supabase.auth.verifyOtp({
+        // 2. Получаем токен из localStorage
+        const token = localStorage.getItem("sb-recovery-token");
+        if (!token || token.length < 10) {
+          throw new Error(
+            "Токен не найден или неверного формата. Запросите новую ссылку."
+          );
+        }
+
+        // 3. Верифицируем токен
+        console.log("Проверяем токен:", token);
+        const { error: verifyError } = await this.supabase.auth.verifyOtp({
           type: "recovery",
-          token_hash: token, // Передаём токен
+          token_hash: token,
         });
 
-        if (error) {
-          console.error("Ошибка верификации:", error);
-          alert("Ссылка устарела. Запросите новую.");
-          localStorage.removeItem("sb-recovery-token");
-          return;
+        if (verifyError) {
+          console.error("Ошибка верификации токена:", verifyError);
+          throw new Error(
+            "Ссылка устарела или недействительна. Запросите новую."
+          );
         }
 
-        // 4. Вешаем обработчик на форму
+        // 4. Настраиваем обработчик формы
         const passwordForm = document.getElementById("passwordForm");
         if (!passwordForm) return;
 
@@ -102,27 +109,42 @@ console.log("Script.js loaded successfully!");
             'input[type="password"]'
           )[1].value;
 
+          // Валидация пароля
           if (password !== confirmPassword) {
             throw new Error("Пароли не совпадают");
           }
+          if (password.length < 8) {
+            throw new Error("Пароль должен содержать минимум 8 символов");
+          }
 
-          // 3. Меняем пароль
-          const { error: updateError } = await supabase.auth.updateUser({
-            password: "новый_пароль",
+          // Обновляем пароль
+          console.log("Пытаемся обновить пароль...");
+          const { error: updateError } = await this.supabase.auth.updateUser({
+            password: password,
           });
 
           if (updateError) {
-            alert("Ошибка смены пароля: " + updateError.message);
-          } else {
-            alert("Пароль успешно изменён!");
-            localStorage.removeItem("sb-recovery-token");
-            window.location.href = "/login.html";
+            console.error("Ошибка обновления пароля:", updateError);
+            throw new Error(
+              "Ошибка при изменении пароля: " + updateError.message
+            );
           }
 
-          // 6. Успех!
-          alert("Пароль изменён!");
+          // Успех - очищаем и перенаправляем
+          console.log("Пароль успешно изменен!");
           localStorage.removeItem("sb-recovery-token");
-          window.location.href = "login.html"; // Перенаправляем на страницу входа
+          localStorage.removeItem("isRecoveryPage");
+
+          const messageElement = document.getElementById("passwordMessage");
+          if (messageElement) {
+            messageElement.textContent =
+              "Пароль успешно изменён! Перенаправляем...";
+            messageElement.className = "auth-message success";
+          }
+
+          setTimeout(() => {
+            window.location.href = "login.html";
+          }, 2000);
         });
       } catch (error) {
         console.error("[Password Update] Ошибка:", error);
@@ -133,16 +155,28 @@ console.log("Script.js loaded successfully!");
         }
       }
     },
-    // Добавьте новый метод для обработки callback'ов
+    // Обработка callback-аутентификации
     handleAuthCallback: async function (type, token) {
       try {
         if (!this.supabase) await this.initSupabase();
+
+        // Проверка формата токена
         if (typeof token !== "string" || token.length < 10) {
           throw new Error("Неверный формат токена");
         }
+
         if (type === "recovery") {
+          // Сохраняем токен и перенаправляем
           localStorage.setItem("sb-recovery-token", token);
-          //localStorage.setItem("isRecoveryPage", "true");
+          localStorage.setItem("isRecoveryPage", "true");
+
+          // Очищаем URL от параметров
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          );
+
           window.location.href = "update-password.html";
           return;
         } else if (type === "signup") {
@@ -159,10 +193,11 @@ console.log("Script.js loaded successfully!");
       } catch (error) {
         console.error("Ошибка обработки callback:", error);
         this.showError("Недействительная или просроченная ссылка", false);
+        this.redirectTo("index.html");
       }
     },
 
-    // Обновите метод handlePasswordReset
+    // Запрос на сброс пароля
     handlePasswordReset: async function (email) {
       try {
         if (!this.supabase) throw new Error("Сервис недоступен");
@@ -170,7 +205,7 @@ console.log("Script.js loaded successfully!");
         const { error } = await this.supabase.auth.resetPasswordForEmail(
           email,
           {
-            redirectTo: `${window.location.origin}/update-password.html`,
+            redirectTo: window.location.origin + "/update-password.html",
           }
         );
 
@@ -189,38 +224,6 @@ console.log("Script.js loaded successfully!");
             ? "Аккаунт с таким email не найден"
             : "Ошибка при отправке ссылки",
           "error"
-        );
-      }
-      try {
-        if (this.isInitialized) return;
-        console.log("[Init] Начало инициализации приложения");
-
-        // 1. Инициализация Supabase
-        await this.retryOperation(this.initSupabase.bind(this), "Supabase");
-
-        // 2. Проверка аутентификации (не критично для работы)
-        try {
-          await this.checkAuth();
-        } catch (authError) {
-          console.warn(
-            "[Init] Ошибка проверки авторизации (не критично):",
-            authError
-          );
-        }
-
-        // 3. Маршрутизация
-        await this.handleRouting();
-
-        // 4. Инициализация UI
-        this.setupEventListeners();
-        this.updateAuthUI();
-
-        this.isInitialized = true;
-      } catch (error) {
-        console.error("[Init] Критическая ошибка инициализации:", error);
-        this.showError(
-          "Системная ошибка. Пожалуйста, обновите страницу.",
-          true
         );
       }
     },
