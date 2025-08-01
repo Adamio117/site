@@ -69,7 +69,12 @@ console.log("Script.js loaded successfully!");
         if (!this.supabase) {
           await this.initSupabase();
         }
-
+        const token = localStorage.getItem("sb-recovery-token");
+        if (!token) {
+          throw new Error(
+            "Ссылка для восстановления недействительна. Запросите новую."
+          );
+        }
         const passwordForm = document.getElementById("passwordForm");
         if (!passwordForm) return;
 
@@ -127,6 +132,11 @@ console.log("Script.js loaded successfully!");
         });
       } catch (error) {
         console.error("[Password Update] Ошибка:", error);
+        const messageElement = document.getElementById("passwordMessage");
+        if (messageElement) {
+          messageElement.textContent = error.message;
+          messageElement.className = "auth-message error";
+        }
       }
     },
     // Добавьте новый метод для обработки callback'ов
@@ -137,9 +147,10 @@ console.log("Script.js loaded successfully!");
         }
 
         if (type === "recovery") {
-          // Сохраняем токен для использования на странице сброса пароля
+          // ▼▼▼ Сохраняем токен в localStorage ▼▼▼
           localStorage.setItem("sb-recovery-token", token);
           localStorage.setItem("isRecoveryPage", "true");
+
           // Перенаправляем на страницу сброса пароля
           window.location.href = "update-password.html";
           return; // Прерываем выполнение
